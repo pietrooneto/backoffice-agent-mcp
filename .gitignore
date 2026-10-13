@@ -23,6 +23,12 @@ logs/*.jsonl
 .DS_Store
 Thumbs.db
 
+# Diario di sviluppo: materiale grezzo per il rapporto, solo in locale
+docs/dev-log.md
+
+# Materiali dell'universita (traccia e template del rapporto)
+1789379863.*
+
 # Contesto di lavoro locale dell'assistente AI
 CLAUDE.md
 .claude/
