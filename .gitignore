@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Segreti e dati locali
+.env
+*.db
+*.sqlite
+*.sqlite3
+
+# Log grezzi (committare solo estratti puliti, con git add -f)
+logs/*.jsonl
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Contesto di lavoro locale dell'assistente AI
+CLAUDE.md
+.claude/
