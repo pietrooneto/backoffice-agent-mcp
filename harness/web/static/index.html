@@ -9,7 +9,7 @@
   :root {
     --sfondo: #f7f7f6; --foglio: #ffffff; --testo: #1c1c1c; --tenue: #6a6a6a; --linea: #e3e3e1; --linea-forte: #c9c9c6;
     --hover: #efefed; --utente: #ececea; --ok: #1f7a4d; --errore: #b3261e; --attenzione: #96650a; --evidenza: #fff5d1;
-    --font: "Avenir Next", Corbel, Candara, "Gill Sans", "Trebuchet MS", sans-serif;
+    --font: Arial, Helvetica, sans-serif;
     --mono: "Cascadia Mono", Consolas, Menlo, "Courier New", monospace;
   }
   @media (prefers-color-scheme: dark) {
@@ -28,6 +28,7 @@
   .etichetta { font-size: .82rem; color: var(--tenue); }
   .etichetta b { color: var(--testo); font-weight: 600; }
 
+  h1, h2, button, textarea, table, summary { font-family: var(--font); }
   button { font: inherit; cursor: pointer; color: var(--testo); background: var(--foglio); border: 1px solid var(--linea-forte);
            border-radius: 4px; padding: 5px 12px; }
   button:hover:not(:disabled) { background: var(--hover); }
