@@ -32,3 +32,9 @@ docs/dev-log.md
 # Contesto di lavoro locale dell'assistente AI
 CLAUDE.md
 .claude/
+
+# Rapporto Word (si consegna all'universita', non sul repository)
+*.docx
+
+# Bozze e script del rapporto (materiale locale)
+rapporto/
