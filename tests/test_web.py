@@ -21,7 +21,7 @@ from harness.web.app import Bus, ConfermaWeb
 class ServerWeb:
     def __init__(self, copione, db, timeout_conferma=30):
         self.provider = ProviderScriptato(copione)
-        app = crea_app(Configurazione(log_dir=None), self.provider, {"DB_PATH": str(db)}, timeout_conferma)
+        app = crea_app(Configurazione(log_dir=None), self.provider, {"DB_PATH": str(db)}, timeout_conferma, db_path=db)
         self.socket = socket.socket()
         self.socket.bind(("127.0.0.1", 0))
         self.socket.listen()
@@ -118,6 +118,47 @@ def test_la_pagina_non_inserisce_testo_come_html():
     from harness.web.app import PAGINA
     codice = PAGINA.read_text(encoding="utf-8")
     assert "innerHTML" not in codice and "insertAdjacentHTML" not in codice and "document.write" not in codice
+
+
+# ------------------------------------------------------- pannello dati (sola lettura)
+
+def test_la_pagina_ha_le_tre_schede_dei_dati():
+    from harness.web.app import PAGINA
+    codice = PAGINA.read_text(encoding="utf-8")
+    for scheda in ("Eventi", "Movimenti", "Registro modifiche"):
+        assert f">{scheda}<" in codice
+
+
+def test_dati_del_pannello(avvia):
+    s = avvia([])
+    codice, dati = s.richiesta("GET", "/api/dati")
+    assert codice == 200 and set(dati) == {"eventi", "movimenti", "registro"}
+    assert len(dati["eventi"]) == 12 and dati["registro"] == []
+    assert {"id", "titolo", "luogo", "data_evento", "stato", "capienza", "venduti"} <= set(dati["eventi"][0])
+    assert {"tipo", "quando", "ordine_id", "cliente", "evento", "importo_centesimi", "nota"} <= set(dati["movimenti"][0])
+
+
+def test_il_pannello_e_in_sola_lettura(avvia):
+    s = avvia([])
+    assert s.richiesta("POST", "/api/dati", {})[0] == 405
+    assert s.richiesta("PUT", "/api/dati", {})[0] == 405
+    assert s.richiesta("DELETE", "/api/dati")[0] == 405
+
+
+def test_dopo_una_scrittura_il_pannello_mostra_l_effetto(avvia):
+    s = avvia([risposta(tool=[("chiudi_vendite_evento", {"evento_id": 12})]), risposta("Vendite chiuse.")])
+    s.richiesta("POST", "/api/messaggio", {"testo": "chiudi le vendite del cabaret"})
+    eventi = s.eventi_fino_a(lambda ev: any(e["tipo"] == "richiesta_conferma" for e in ev))
+    id_conferma = next(e for e in eventi if e["tipo"] == "richiesta_conferma")["id"]
+
+    prima = s.richiesta("GET", "/api/dati")[1]
+    assert next(e for e in prima["eventi"] if e["id"] == 12)["stato"] == "in_vendita" and prima["registro"] == []
+
+    s.richiesta("POST", "/api/conferma", {"id": id_conferma, "approva": True})
+    s.eventi_fino_a(ha_arresto)
+    dopo = s.richiesta("GET", "/api/dati")[1]
+    assert next(e for e in dopo["eventi"] if e["id"] == 12)["stato"] == "vendite_chiuse"
+    assert [(r["tool"], r["parametri"], r["esito"]) for r in dopo["registro"]] == [("chiudi_vendite_evento", {"evento_id": 12}, "ok")]
 
 
 # ------------------------------------------------------------ richieste e flusso

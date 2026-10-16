@@ -38,7 +38,7 @@ Interfaccia web (avvia da sola il server MCP come processo figlio), poi apri htt
 python -m harness.web
 ```
 
-La pagina mostra in tempo reale i passi dell'agente. Quando l'agente vuole modificare i dati compare una scheda con tool e parametri e l'esecuzione resta ferma finché non premi **Conferma** o **Rifiuta**. Il server ascolta solo su `127.0.0.1` (porta modificabile con `WEB_PORT`) e rifiuta richieste provenienti da altri siti.
+La pagina mostra in tempo reale i passi dell'agente e, accanto alla chat, un pannello di **sola lettura** con tre schede (eventi, movimenti, registro delle modifiche) per controllare i dati e vedere l'effetto di ogni modifica. Quando l'agente vuole modificare i dati compare una scheda con tool e parametri e l'esecuzione resta ferma finché non premi **Conferma** o **Rifiuta**. Il server ascolta solo su `127.0.0.1` (porta modificabile con `WEB_PORT`) e rifiuta richieste provenienti da altri siti.
 
 In alternativa, chat nel terminale:
 

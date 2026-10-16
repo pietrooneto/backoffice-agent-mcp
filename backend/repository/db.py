@@ -28,6 +28,14 @@ def connetti(percorso: str | Path | None = None) -> sqlite3.Connection:
     return conn
 
 
+def connetti_sola_lettura(percorso: str | Path | None = None) -> sqlite3.Connection:
+    """Connessione che non puo' scrivere (mode=ro), per le viste informative dell'interfaccia."""
+    percorso = Path(percorso or percorso_db()).resolve()
+    conn = sqlite3.connect(f"{percorso.as_uri()}?mode=ro", uri=True)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
 @contextmanager
 def transazione(conn: sqlite3.Connection):
     """Transazione tutto-o-niente: BEGIN IMMEDIATE, poi COMMIT o ROLLBACK.
