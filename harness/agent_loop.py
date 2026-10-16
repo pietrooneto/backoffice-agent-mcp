@@ -57,6 +57,7 @@ class _EsitoTool:
     testo: str
     esito: str
     fatale: bool = False
+    attesa_conferma_ms: int = 0  # tempo che l'operatore ha impiegato a rispondere, escluso dalla durata del tool
 
 
 @dataclass
@@ -233,9 +234,10 @@ class Agente:
         self.registro.scrivi(
             "tool", turno=turno.numero, iterazione=turno.iterazione, id_chiamata=chiamata.id,
             tool=chiamata.nome, parametri=chiamata.argomenti, scrittura=scrittura,
-            esito=esito.esito, risultato=testo, durata_ms=int((time.monotonic() - inizio) * 1000),
+            esito=esito.esito, risultato=testo, attesa_conferma_ms=esito.attesa_conferma_ms,
+            durata_ms=max(0, int((time.monotonic() - inizio) * 1000) - esito.attesa_conferma_ms),
         )
-        return _EsitoTool(testo, esito.esito, esito.fatale)
+        return _EsitoTool(testo, esito.esito, esito.fatale, esito.attesa_conferma_ms)
 
     async def _decidi_ed_esegui(self, chiamata: ChiamataTool, info: InfoTool | None, turno: _Turno) -> _EsitoTool:
         # 1. Argomenti illeggibili.
@@ -254,18 +256,21 @@ class Agente:
             return _EsitoTool(f"Errore: parametri non validi per '{info.nome}': {dettaglio}.", "parametri_non_validi")
 
         # 4. Conferma umana per i tool che modificano i dati.
+        attesa_ms = 0
         if info.scrittura:
             richiesta = RichiestaConferma(info.nome, info.descrizione, chiamata.argomenti)
+            inizio_attesa = time.monotonic()
             approvata = await self.conferma.chiedi(richiesta)
+            attesa_ms = int((time.monotonic() - inizio_attesa) * 1000)
             self.registro.scrivi("conferma", turno=turno.numero, iterazione=turno.iterazione,
                                  tool=info.nome, parametri=chiamata.argomenti,
-                                 decisione="approvata" if approvata else "negata")
+                                 decisione="approvata" if approvata else "negata", attesa_ms=attesa_ms)
             if not approvata:
                 turno.stato.conferme_negate += 1
                 return _EsitoTool(
                     "L'operatore ha RIFIUTATO questa azione: nessun dato e' stato modificato. "
                     "Non riprovare: comunica all'operatore che l'azione non e' stata eseguita.",
-                    "rifiutato",
+                    "rifiutato", attesa_conferma_ms=attesa_ms,
                 )
 
         # 5. Esecuzione sul server MCP.
@@ -275,14 +280,15 @@ class Agente:
             return _EsitoTool(
                 f"Errore: il tool '{info.nome}' non ha risposto entro {self.timeout_tool:g} secondi. "
                 "L'esito e' incerto: se era una modifica, verifica lo stato con un tool di lettura.",
-                "timeout",
+                "timeout", attesa_conferma_ms=attesa_ms,
             )
         except Exception as errore:  # guasto di trasporto: il server non e' piu' raggiungibile
-            return _EsitoTool(f"Errore di comunicazione con il server dei tool: {errore}", "errore_trasporto", fatale=True)
+            return _EsitoTool(f"Errore di comunicazione con il server dei tool: {errore}", "errore_trasporto",
+                              fatale=True, attesa_conferma_ms=attesa_ms)
 
         if risultato.errore:
-            return _EsitoTool(risultato.testo, "errore_tool")
-        return _EsitoTool(risultato.testo, "ok")
+            return _EsitoTool(risultato.testo, "errore_tool", attesa_conferma_ms=attesa_ms)
+        return _EsitoTool(risultato.testo, "ok", attesa_conferma_ms=attesa_ms)
 
     # ------------------------------------------------------------------ chiusura
 

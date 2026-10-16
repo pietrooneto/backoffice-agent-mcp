@@ -295,6 +295,26 @@ def test_scrittura_approvata_modifica_i_dati(db):
     assert esito.motivo == MotivoArresto.RISPOSTA_FINALE
 
 
+def test_l_attesa_della_conferma_non_conta_come_durata_del_tool(db):
+    class ConfermaLenta:
+        async def chiedi(self, richiesta):
+            await asyncio.sleep(0.6)  # l'operatore ci pensa
+            return True
+
+    copione = [risposta(tool=[("chiudi_vendite_evento", {"evento_id": 12})]), risposta("Fatto.")]
+
+    async def prova():
+        async with sessione(db, copione, conferma=ConfermaLenta()) as (agente, _, registro):
+            await agente.esegui("chiudi le vendite del cabaret")
+            return registro
+
+    registro = esegui(prova())
+    tool = tipi(registro, "tool")[0]
+    assert tool["attesa_conferma_ms"] >= 600
+    assert tool["durata_ms"] < tool["attesa_conferma_ms"]  # durata = solo l'esecuzione del tool
+    assert tipi(registro, "conferma")[0]["attesa_ms"] >= 600
+
+
 def test_scrittura_negata_non_modifica_i_dati(db):
     copione = [risposta(tool=[("annulla_evento", {"evento_id": 12})]), risposta("Va bene, non annullo nulla.")]
 
