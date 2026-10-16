@@ -19,8 +19,10 @@ def connetti(percorso: str | Path | None = None) -> sqlite3.Connection:
     """Apre una connessione con righe accessibili per nome e chiavi esterne attive.
 
     isolation_level=None: le transazioni sono gestite esplicitamente da transazione().
+    check_same_thread=False: il server MCP esegue i tool in thread diversi; l'accesso e'
+    comunque serializzato da un lucchetto (vedi mcp_server.errori), quindi e' sicuro.
     """
-    conn = sqlite3.connect(percorso or percorso_db(), isolation_level=None)
+    conn = sqlite3.connect(percorso or percorso_db(), isolation_level=None, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn

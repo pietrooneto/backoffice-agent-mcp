@@ -6,6 +6,7 @@ from .errors import (
     FuoriTermine,
     NonTrovato,
     ParametroNonValido,
+    RichiestaAmbigua,
     StatoNonValido,
 )
 from .eventi import annulla_evento, cerca_eventi, chiudi_vendite_evento, dettaglio_evento
@@ -17,4 +18,5 @@ __all__ = [
     "trova_clienti", "storico_cliente",
     "stato_ordine", "rimborsa_ordine", "TERMINE_RIMBORSO_ORE",
     "ErroreDominio", "NonTrovato", "StatoNonValido", "FuoriTermine", "ParametroNonValido",
+    "RichiestaAmbigua",
 ]

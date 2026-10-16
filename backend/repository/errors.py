@@ -21,5 +21,9 @@ class FuoriTermine(ErroreDominio):
     """Il rimborso e' richiesto oltre il termine consentito."""
 
 
+class RichiestaAmbigua(ErroreDominio):
+    """La richiesta corrisponde a piu' entita' (per esempio clienti omonimi)."""
+
+
 class ParametroNonValido(ErroreDominio):
     """Un parametro ha un valore non accettabile."""
