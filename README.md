@@ -6,23 +6,57 @@ Agente AI di **back-office** per un'ipotetica piattaforma di ticketing online, r
 
 ## Componenti
 
-- `backend/`: base dati relazionale (SQLite) e accesso ai dati
-- `mcp_server/`: server MCP con i tool (lettura e scrittura)
-- `harness/`: ciclo agentico, astrazione del modello (`LLMProvider`), conferma umana sulle scritture, log strutturato JSON Lines, CLI
-- `tests/`: test automatici e scenari in linguaggio naturale
-- `docs/`: diagrammi UML/ER, documentazione dei tool, diario di sviluppo
+- `backend/`: base dati SQLite (`schema.sql`), generatore di dati sintetici (`seed.py`) e funzioni di accesso ai dati (`repository/`)
+- `mcp_server/`: server MCP con sette tool (quattro di lettura, tre di scrittura), uno per file in `tools/`
+- `harness/`: ciclo agentico (`agent_loop.py`), astrazione del modello (`llm/`, interfaccia `LLMProvider` con Ollama e API compatibile OpenAI), conferma umana sulle scritture (`conferma.py`), log JSON Lines (`registro.py`), client MCP e CLI
+- `tests/`: test automatici (modello finto, server MCP vero)
+- `docs/`: diagrammi e documentazione
 
-## Installazione ed esecuzione
+## Requisiti
 
-*Da completare man mano che il codice viene scritto.*
+- Python 3.13
+- [Ollama](https://ollama.com) con un modello che supporti la chiamata di tool (provato: `qwen2.5:7b`)
 
-Requisiti: Python 3.13+, [Ollama](https://ollama.com) (opzionale, per il modello locale).
+## Installazione
 
 ```bash
 python -m venv .venv
 .venv\Scripts\activate
+pip install -r requirements-dev.txt
 copy .env.example .env
+ollama pull qwen2.5:7b
+python backend/seed.py
 ```
+
+`seed.py` crea `backend/ticketing.db` con dati sintetici sempre identici (seme fisso).
+
+## Esecuzione
+
+Chat nel terminale (avvia da sola il server MCP come processo figlio):
+
+```bash
+python -m harness.cli
+```
+
+Esempi di richieste: «quanti posti restano per la Rassegna Rock Club?», «quanti eventi ha comprato Daniele Esposito?», «chiudi le vendite della Serata Cabaret». Prima di ogni modifica ai dati l'agente chiede conferma e mostra tool e parametri. Ogni sessione scrive un log strutturato in `logs/*.jsonl`.
+
+Il server MCP si può avviare anche da solo, per usarlo con altri client MCP:
+
+```bash
+python -m mcp_server
+```
+
+## Configurazione
+
+Tutto in `.env` (vedi `.env.example`). Per cambiare modello basta `OLLAMA_MODEL`; per usare un altro server compatibile OpenAI, `LLM_PROVIDER=openai_compat` e `OPENAI_BASE_URL`. Il codice non cambia.
+
+## Test
+
+```bash
+python -m pytest
+```
+
+I test non richiedono Ollama: usano un modello finto con risposte preparate e il vero server MCP su una copia del database.
 
 ## Stato
 
