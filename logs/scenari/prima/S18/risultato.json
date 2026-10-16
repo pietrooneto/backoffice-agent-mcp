@@ -1,0 +1,42 @@
+{
+  "scenario": 18,
+  "richiesta": "Ciao, sei attivo?",
+  "motivo": "risposta_finale",
+  "iterazioni": 1,
+  "chiamate_modello": 2,
+  "token_ingresso": 1800,
+  "token_uscita": 17,
+  "durata_ms": 20,
+  "turni": [
+    {
+      "richiesta": "Ciao, sei attivo?",
+      "motivo": "risposta_finale",
+      "iterazioni": 1,
+      "token_ingresso": 1800,
+      "token_uscita": 17,
+      "durata_ms": 20,
+      "risposta": "Sono attivo e pronto ad aiutarti con eventi, ordini e clienti."
+    }
+  ],
+  "attesa_conferma_ms": 0,
+  "tool": [],
+  "conferme": [],
+  "tentativi_extra": 1,
+  "risposta": "Sono attivo e pronto ad aiutarti con eventi, ordini e clienti.",
+  "controlli_dati": [
+    {
+      "controllo": "nessuna riga di audit",
+      "ok": true
+    },
+    {
+      "controllo": "nessun evento cambiato di stato",
+      "ok": true
+    },
+    {
+      "controllo": "rimborsi invariati",
+      "ok": true
+    }
+  ],
+  "indizi_testo": [],
+  "file_log": "20261016-194041-ca7c8a1b.jsonl"
+}

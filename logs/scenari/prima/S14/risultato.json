@@ -1,0 +1,64 @@
+{
+  "scenario": 14,
+  "richiesta": "Quanti posti restano per la Rassegna Rock Club?",
+  "motivo": "risposta_finale",
+  "iterazioni": 3,
+  "chiamate_modello": 3,
+  "token_ingresso": 4292,
+  "token_uscita": 152,
+  "durata_ms": 54484,
+  "turni": [
+    {
+      "richiesta": "Quanti posti restano per la Rassegna Rock Club?",
+      "motivo": "risposta_finale",
+      "iterazioni": 3,
+      "token_ingresso": 4292,
+      "token_uscita": 152,
+      "durata_ms": 54484,
+      "risposta": "Mi dispiace, ma attualmente non è possibile ottenere il dettaglio dell'evento \"Rassegna Rock Club\" a causa di un errore temporaneo del database. Riproverò più tardi. Se il problema persiste, consiglio di avvisare un tecnico."
+    }
+  ],
+  "attesa_conferma_ms": 0,
+  "tool": [
+    {
+      "nome": "cerca_eventi",
+      "parametri": {
+        "titolo": "Rassegna Rock Club"
+      },
+      "esito": "ok",
+      "scrittura": false
+    },
+    {
+      "nome": "dettaglio_evento",
+      "parametri": {
+        "evento_id": 9
+      },
+      "esito": "errore_tool",
+      "scrittura": false
+    }
+  ],
+  "conferme": [],
+  "tentativi_extra": 0,
+  "risposta": "Mi dispiace, ma attualmente non è possibile ottenere il dettaglio dell'evento \"Rassegna Rock Club\" a causa di un errore temporaneo del database. Riproverò più tardi. Se il problema persiste, consiglio di avvisare un tecnico.",
+  "controlli_dati": [
+    {
+      "controllo": "nessuna riga di audit",
+      "ok": true
+    },
+    {
+      "controllo": "nessun evento cambiato di stato",
+      "ok": true
+    },
+    {
+      "controllo": "rimborsi invariati",
+      "ok": true
+    }
+  ],
+  "indizi_testo": [
+    {
+      "parola": "errore",
+      "presente": true
+    }
+  ],
+  "file_log": "20261016-193738-7a833f01.jsonl"
+}

@@ -11,6 +11,7 @@ from .conferma import ConfermaDaTerminale
 from .config import Configurazione
 from .llm import crea_provider
 from .mcp_client import ClientMcp
+from .prompt import prompt_per
 from .registro import Registro
 
 
@@ -41,7 +42,8 @@ async def principale() -> None:
         agente = Agente(provider, mcp, ConfermaDaTerminale(), registro,
                         max_iterazioni=config.max_iterazioni,
                         tentativi_extra_risposta_vuota=config.tentativi_extra_risposta_vuota,
-                        timeout_tool=config.timeout_tool)
+                        timeout_tool=config.timeout_tool,
+                        prompt_sistema=prompt_per(config.variante_prompt))
         while True:
             try:
                 richiesta = await asyncio.to_thread(input, "\nOperatore> ")

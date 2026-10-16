@@ -1,0 +1,53 @@
+{
+  "scenario": 1,
+  "richiesta": "Quanti posti restano per la Rassegna Rock Club?",
+  "motivo": "risposta_finale",
+  "iterazioni": 3,
+  "chiamate_modello": 3,
+  "token_ingresso": 4418,
+  "token_uscita": 125,
+  "durata_ms": 111262,
+  "attesa_conferma_ms": 0,
+  "tool": [
+    {
+      "nome": "cerca_eventi",
+      "parametri": {
+        "titolo": "Rassegna Rock Club"
+      },
+      "esito": "ok",
+      "scrittura": false
+    },
+    {
+      "nome": "dettaglio_evento",
+      "parametri": {
+        "evento_id": 9
+      },
+      "esito": "ok",
+      "scrittura": false
+    }
+  ],
+  "conferme": [],
+  "tentativi_extra": 0,
+  "risposta": "Per l'evento \"Rassegna Rock Club\" a Bari, Rock Club, restano 2 posti disponibili: 1 posto nella platea e 1 nella gradinata.",
+  "controlli_dati": [
+    {
+      "controllo": "nessuna riga di audit",
+      "ok": true
+    },
+    {
+      "controllo": "nessun evento cambiato di stato",
+      "ok": true
+    },
+    {
+      "controllo": "rimborsi invariati",
+      "ok": true
+    }
+  ],
+  "indizi_testo": [
+    {
+      "parola": "2",
+      "presente": true
+    }
+  ],
+  "file_log": "20261016-192151-5f371611.jsonl"
+}

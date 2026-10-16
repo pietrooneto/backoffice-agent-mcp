@@ -1,0 +1,50 @@
+{
+  "scenario": 3,
+  "richiesta": "Quanti ordini ha fatto Marco Rossi?",
+  "motivo": "risposta_finale",
+  "iterazioni": 2,
+  "chiamate_modello": 2,
+  "token_ingresso": 2761,
+  "token_uscita": 65,
+  "durata_ms": 25055,
+  "attesa_conferma_ms": 0,
+  "tool": [
+    {
+      "nome": "storico_acquisti_cliente",
+      "parametri": {
+        "nome": "Marco",
+        "cognome": "Rossi"
+      },
+      "esito": "errore_tool",
+      "scrittura": false
+    }
+  ],
+  "conferme": [],
+  "tentativi_extra": 0,
+  "risposta": "Ho trovato due clienti con i nomi Marco Rossi. Potresti confermare l'ID del cliente che intende, per favore?",
+  "controlli_dati": [
+    {
+      "controllo": "nessuna riga di audit",
+      "ok": true
+    },
+    {
+      "controllo": "nessun evento cambiato di stato",
+      "ok": true
+    },
+    {
+      "controllo": "rimborsi invariati",
+      "ok": true
+    }
+  ],
+  "indizi_testo": [
+    {
+      "parola": "Rossi",
+      "presente": true
+    },
+    {
+      "parola": "2",
+      "presente": false
+    }
+  ],
+  "file_log": "20261016-192549-0ea57e9c.jsonl"
+}
