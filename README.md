@@ -8,7 +8,7 @@ Agente AI di **back-office** per un'ipotetica piattaforma di ticketing online, r
 
 - `backend/`: base dati SQLite (`schema.sql`), generatore di dati sintetici (`seed.py`) e funzioni di accesso ai dati (`repository/`)
 - `mcp_server/`: server MCP con sette tool (quattro di lettura, tre di scrittura), uno per file in `tools/`
-- `harness/`: ciclo agentico (`agent_loop.py`), astrazione del modello (`llm/`, interfaccia `LLMProvider` con Ollama e API compatibile OpenAI), conferma umana sulle scritture (`conferma.py`), log JSON Lines (`registro.py`), client MCP e CLI
+- `harness/`: ciclo agentico (`agent_loop.py`), astrazione del modello (`llm/`, interfaccia `LLMProvider` con Ollama e API compatibile OpenAI), conferma umana sulle scritture (`conferma.py`), log JSON Lines (`registro.py`), client MCP, interfaccia web (`web/`) e CLI
 - `tests/`: test automatici (modello finto, server MCP vero)
 - `docs/`: diagrammi e documentazione
 
@@ -32,13 +32,21 @@ python backend/seed.py
 
 ## Esecuzione
 
-Chat nel terminale (avvia da sola il server MCP come processo figlio):
+Interfaccia web (avvia da sola il server MCP come processo figlio), poi apri http://127.0.0.1:8000 nel browser:
+
+```bash
+python -m harness.web
+```
+
+La pagina mostra in tempo reale i passi dell'agente. Quando l'agente vuole modificare i dati compare una scheda con tool e parametri e l'esecuzione resta ferma finché non premi **Conferma** o **Rifiuta**. Il server ascolta solo su `127.0.0.1` (porta modificabile con `WEB_PORT`) e rifiuta richieste provenienti da altri siti.
+
+In alternativa, chat nel terminale:
 
 ```bash
 python -m harness.cli
 ```
 
-Esempi di richieste: «quanti posti restano per la Rassegna Rock Club?», «quanti eventi ha comprato Daniele Esposito?», «chiudi le vendite della Serata Cabaret». Prima di ogni modifica ai dati l'agente chiede conferma e mostra tool e parametri. Ogni sessione scrive un log strutturato in `logs/*.jsonl`.
+Esempi di richieste (valgono per entrambe le interfacce): «quanti posti restano per la Rassegna Rock Club?», «quanti eventi ha comprato Daniele Esposito?», «chiudi le vendite della Serata Cabaret». Prima di ogni modifica ai dati l'agente chiede conferma e mostra tool e parametri. Ogni sessione scrive un log strutturato in `logs/*.jsonl`.
 
 Il server MCP si può avviare anche da solo, per usarlo con altri client MCP:
 

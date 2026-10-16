@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Assistente di back-office</title>
+<style>
+  :root {
+    --sfondo: #f6f7f9; --pannello: #ffffff; --testo: #1b1f27; --testo-tenue: #5b6372;
+    --bordo: #dde1e8; --accento: #2457d6; --accento-testo: #ffffff;
+    --utente: #e8eefc; --ok: #1d7a46; --ok-sfondo: #e3f4ea;
+    --attenzione: #92580a; --attenzione-sfondo: #fdf0d8;
+    --errore: #b3261e; --errore-sfondo: #fbe4e2; --scrittura: #6b3fa0; --scrittura-sfondo: #efe6f8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --sfondo: #12151b; --pannello: #1b2029; --testo: #e7eaf0; --testo-tenue: #9aa3b2;
+      --bordo: #2c3340; --accento: #6b95ff; --accento-testo: #0d1220;
+      --utente: #1f2c4d; --ok: #62d08f; --ok-sfondo: #17301f;
+      --attenzione: #f0b85a; --attenzione-sfondo: #3a2c12;
+      --errore: #ff8d85; --errore-sfondo: #3b1b19; --scrittura: #c4a0f0; --scrittura-sfondo: #2c2040;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--sfondo); color: var(--testo);
+         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--pannello); border-bottom: 1px solid var(--bordo); }
+  .contenitore { max-width: 860px; margin: 0 auto; padding: 0 16px; }
+  .testata { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 0; }
+  h1 { font-size: 1.1rem; margin: 0; flex: 1 1 auto; }
+  .etichetta { font-size: .8rem; color: var(--testo-tenue); border: 1px solid var(--bordo); border-radius: 999px; padding: 2px 10px; }
+  button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--bordo);
+           background: var(--pannello); color: var(--testo); padding: 8px 14px; }
+  button:hover:not(:disabled) { border-color: var(--accento); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button.primario { background: var(--accento); color: var(--accento-testo); border-color: var(--accento); font-weight: 600; }
+  button:focus-visible, textarea:focus-visible { outline: 3px solid var(--accento); outline-offset: 2px; }
+  main { padding: 16px 0 190px; }
+  #chat { display: flex; flex-direction: column; gap: 10px; }
+  .vuoto { color: var(--testo-tenue); text-align: center; padding: 28px 0 8px; }
+  .suggerimenti { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; }
+  .suggerimenti button { font-size: .9rem; padding: 6px 12px; border-radius: 999px; }
+  .balloon { max-width: 88%; padding: 10px 14px; border-radius: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .utente { align-self: flex-end; background: var(--utente); border-bottom-right-radius: 4px; }
+  .agente { align-self: flex-start; background: var(--pannello); border: 1px solid var(--bordo); border-bottom-left-radius: 4px; }
+  .agente.errore { border-color: var(--errore); }
+  .meta { margin-top: 6px; font-size: .78rem; color: var(--testo-tenue); white-space: normal; }
+  .passo { align-self: stretch; font-size: .85rem; color: var(--testo-tenue); padding: 4px 4px 4px 12px;
+           border-left: 3px solid var(--bordo); overflow-wrap: anywhere; }
+  .passo .riga { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: baseline; }
+  .passo code { font: .82rem ui-monospace, Consolas, monospace; color: var(--testo); }
+  .badge { font-size: .72rem; font-weight: 600; border-radius: 999px; padding: 1px 8px; background: var(--ok-sfondo); color: var(--ok); }
+  .badge.attenzione { background: var(--attenzione-sfondo); color: var(--attenzione); }
+  .badge.errore { background: var(--errore-sfondo); color: var(--errore); }
+  .badge.scrittura { background: var(--scrittura-sfondo); color: var(--scrittura); }
+  details summary { cursor: pointer; }
+  details pre { margin: 6px 0 0; padding: 8px; background: var(--pannello); border: 1px solid var(--bordo);
+                border-radius: 6px; font: .78rem ui-monospace, Consolas, monospace; white-space: pre-wrap;
+                overflow-wrap: anywhere; max-height: 240px; overflow: auto; color: var(--testo); }
+  .conferma { align-self: stretch; background: var(--pannello); border: 2px solid var(--scrittura); border-radius: 12px; padding: 14px; }
+  .conferma h2 { margin: 0 0 4px; font-size: 1rem; }
+  .conferma .tool { font: 1rem ui-monospace, Consolas, monospace; font-weight: 700; }
+  .conferma dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; margin: 10px 0; font-size: .9rem; }
+  .conferma dt { color: var(--testo-tenue); } .conferma dd { margin: 0; overflow-wrap: anywhere; }
+  .conferma .azioni { display: flex; gap: 10px; flex-wrap: wrap; }
+  .conferma.risolta { border-color: var(--bordo); opacity: .85; }
+  #attesa { color: var(--testo-tenue); font-size: .9rem; padding: 6px 4px; display: none; }
+  #attesa.visibile { display: block; }
+  .compositore { position: fixed; left: 0; right: 0; bottom: 0; background: var(--pannello); border-top: 1px solid var(--bordo); padding: 12px 0; }
+  form { display: flex; gap: 10px; align-items: flex-end; }
+  textarea { flex: 1; font: inherit; resize: none; min-height: 48px; max-height: 140px; padding: 10px 12px; color: var(--testo);
+             background: var(--sfondo); border: 1px solid var(--bordo); border-radius: 10px; }
+  .nota { font-size: .75rem; color: var(--testo-tenue); margin-top: 6px; }
+  @media (max-width: 520px) { .balloon { max-width: 96%; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="contenitore testata">
+    <h1>Assistente di back-office</h1>
+    <span class="etichetta" id="modello">modello…</span>
+    <span class="etichetta" id="connessione">connessione…</span>
+    <button type="button" id="nuova">Nuova chat</button>
+  </div>
+</header>
+
+<main class="contenitore">
+  <div id="chat" aria-live="polite">
+    <div class="vuoto" id="vuoto">
+      <p>Scrivi una richiesta in italiano. Prima di ogni modifica ai dati ti verrà chiesta una conferma.</p>
+      <div class="suggerimenti" id="suggerimenti"></div>
+    </div>
+  </div>
+  <div id="attesa" role="status"></div>
+</main>
+
+<div class="compositore">
+  <div class="contenitore">
+    <form id="modulo">
+      <textarea id="testo" rows="1" maxlength="2000" placeholder="Es. quanti posti restano per la Rassegna Rock Club?" aria-label="Richiesta"></textarea>
+      <button class="primario" id="invia" type="submit">Invia</button>
+    </form>
+    <div class="nota">Dati interamente sintetici · modello eseguito in locale: ogni passo può richiedere decine di secondi.</div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const ESEMPI = [
+  "Quanti posti restano per la Rassegna Rock Club?",
+  "Quanti eventi ha comprato Daniele Esposito?",
+  "Chiudi le vendite della Serata Cabaret",
+  "Chiudi l'evento Notte Elettrica Festival",
+  "Che tempo fa domani a Milano?"
+];
+const chat = document.getElementById("chat");
+const attesa = document.getElementById("attesa");
+const testo = document.getElementById("testo");
+const invia = document.getElementById("invia");
+const nuova = document.getElementById("nuova");
+let occupato = false, inizioAttesa = 0, timer = null;
+const schedeConferma = new Map();
+
+// Tutto il testo del modello e dei tool entra nella pagina come testo semplice (textContent), mai come HTML.
+function el(tag, classe, contenuto) {
+  const e = document.createElement(tag);
+  if (classe) e.className = classe;
+  if (contenuto !== undefined) e.textContent = contenuto;
+  return e;
+}
+function mostra(nodo) {
+  const vuoto = document.getElementById("vuoto");
+  if (vuoto) vuoto.remove();
+  chat.appendChild(nodo);
+  nodo.scrollIntoView({ block: "end", behavior: "smooth" });
+}
+function json(valore) { return JSON.stringify(valore); }
+function secondi(ms) { return (ms / 1000).toFixed(1) + " s"; }
+
+function impostaOccupato(valore) {
+  occupato = valore;
+  invia.disabled = valore; nuova.disabled = valore;
+  clearInterval(timer);
+  if (valore) {
+    inizioAttesa = Date.now();
+    const aggiorna = () => {
+      attesa.textContent = "L'agente sta elaborando… " + Math.round((Date.now() - inizioAttesa) / 1000) + " s";
+      attesa.classList.add("visibile");
+    };
+    aggiorna(); timer = setInterval(aggiorna, 1000);
+  } else {
+    attesa.classList.remove("visibile");
+  }
+}
+
+const CLASSE_ESITO = {
+  ok: "", errore_tool: "errore", timeout: "errore", errore_trasporto: "errore",
+  parametri_non_validi: "attenzione", tool_non_disponibile: "attenzione", rifiutato: "attenzione"
+};
+
+function gestisci(e) {
+  switch (e.tipo) {
+    case "nuova_chat":
+      chat.replaceChildren(); schedeConferma.clear(); impostaOccupato(false);
+      chat.appendChild(vuotoIniziale());
+      break;
+    case "richiesta_utente":
+      mostra(el("div", "balloon utente", e.testo));
+      impostaOccupato(true);
+      break;
+    case "chiamata_modello": {
+      const passo = el("div", "passo"), riga = el("div", "riga");
+      riga.append(el("span", null, "Modello · passo " + e.iterazione + (e.tentativo > 1 ? " (nuovo tentativo)" : "")));
+      if (e.esito === "errore") {
+        riga.append(el("span", "badge errore", "errore"), el("span", null, e.errore));
+      } else {
+        riga.append(el("span", null, "↑" + e.token_ingresso + " ↓" + e.token_uscita + " token · " + secondi(e.durata_ms)));
+        if (e.esito === "vuota") riga.append(el("span", "badge attenzione", "risposta vuota"));
+        for (const c of e.chiamate_tool || []) riga.append(el("span", null, "→ chiede "), el("code", null, c.nome));
+      }
+      passo.append(riga); mostra(passo);
+      break;
+    }
+    case "tool": {
+      const passo = el("div", "passo"), riga = el("div", "riga");
+      riga.append(el("code", null, e.tool + "(" + json(e.parametri) + ")"));
+      riga.append(el("span", "badge " + (CLASSE_ESITO[e.esito] || ""), e.esito.replaceAll("_", " ")));
+      if (e.scrittura) riga.append(el("span", "badge scrittura", "scrittura"));
+      riga.append(el("span", null, secondi(e.durata_ms)));
+      if (e.attesa_conferma_ms > 0) riga.append(el("span", null, "· conferma dopo " + secondi(e.attesa_conferma_ms)));
+      passo.append(riga);
+      const dettaglio = el("details"); dettaglio.append(el("summary", null, "Risultato"), el("pre", null, e.risultato));
+      passo.append(dettaglio); mostra(passo);
+      break;
+    }
+    case "richiesta_conferma": {
+      const scheda = el("div", "conferma");
+      scheda.append(el("h2", null, "Conferma richiesta: l'agente vuole modificare i dati"), el("div", "tool", e.tool));
+      const dl = el("dl");
+      for (const [k, v] of Object.entries(e.argomenti)) dl.append(el("dt", null, k), el("dd", null, String(v)));
+      dl.append(el("dt", null, "Effetto"), el("dd", null, e.descrizione));
+      scheda.append(dl);
+      const azioni = el("div", "azioni");
+      const si = el("button", "primario", "Conferma"), no = el("button", null, "Rifiuta");
+      si.type = no.type = "button";
+      si.onclick = () => rispondi(e.id, true); no.onclick = () => rispondi(e.id, false);
+      azioni.append(si, no); scheda.append(azioni);
+      schedeConferma.set(e.id, scheda); mostra(scheda);
+      break;
+    }
+    case "conferma_risolta": {
+      const scheda = schedeConferma.get(e.id);
+      if (scheda) {
+        scheda.classList.add("risolta");
+        scheda.querySelector(".azioni").replaceChildren(
+          el("span", "badge " + (e.approvata ? "" : "attenzione"),
+             e.approvata ? "Approvata" : (e.motivo === "scaduta" ? "Scaduta: considerata rifiutata" : "Rifiutata")));
+      }
+      break;
+    }
+    case "arresto": {
+      const b = el("div", "balloon agente" + (["errore_modello", "errore_mcp"].includes(e.motivo) ? " errore" : ""));
+      b.append(document.createTextNode(e.risposta));
+      b.append(el("div", "meta", e.motivo.replaceAll("_", " ") + " · " + e.iterazioni + " iterazioni · " +
+        (e.token_ingresso + e.token_uscita) + " token (↑" + e.token_ingresso + " ↓" + e.token_uscita + ") · " + secondi(e.durata_ms)));
+      mostra(b); impostaOccupato(false);
+      break;
+    }
+    case "errore":
+      mostra(el("div", "balloon agente errore", e.messaggio)); impostaOccupato(false);
+      break;
+  }
+}
+
+function vuotoIniziale() {
+  const v = el("div", "vuoto"); v.id = "vuoto";
+  v.append(el("p", null, "Scrivi una richiesta in italiano. Prima di ogni modifica ai dati ti verrà chiesta una conferma."));
+  const s = el("div", "suggerimenti");
+  for (const t of ESEMPI) { const b = el("button", null, t); b.type = "button"; b.onclick = () => { testo.value = t; testo.focus(); }; s.append(b); }
+  v.append(s); return v;
+}
+
+async function post(percorso, corpo) {
+  const r = await fetch(percorso, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo || {}) });
+  if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.errore || ("Errore " + r.status)); }
+}
+async function rispondi(id, approva) {
+  try { await post("/api/conferma", { id, approva }); } catch (err) { alert(err.message); }
+}
+
+document.getElementById("modulo").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const t = testo.value.trim();
+  if (!t || occupato) return;
+  try { await post("/api/messaggio", { testo: t }); testo.value = ""; ridimensiona(); }
+  catch (err) { mostra(el("div", "balloon agente errore", err.message)); }
+});
+testo.addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); document.getElementById("modulo").requestSubmit(); }
+});
+function ridimensiona() { testo.style.height = "auto"; testo.style.height = Math.min(testo.scrollHeight, 140) + "px"; }
+testo.addEventListener("input", ridimensiona);
+nuova.addEventListener("click", async () => { try { await post("/api/nuova"); } catch (err) { alert(err.message); } });
+
+async function avvia() {
+  const iniziale = vuotoIniziale(); chat.replaceChildren(iniziale);
+  try {
+    const s = await (await fetch("/api/stato")).json();
+    document.getElementById("modello").textContent = s.provider + " · " + s.modello;
+    const scritture = s.tool.filter(t => t.scrittura).length;
+    document.getElementById("modello").title = s.tool.length + " tool (" + scritture + " di scrittura), massimo " + s.max_iterazioni + " iterazioni";
+  } catch { document.getElementById("modello").textContent = "stato non disponibile"; }
+
+  const fonte = new EventSource("/api/eventi");
+  const stato = document.getElementById("connessione");
+  // A ogni (ri)connessione il server rimanda tutta la cronologia: si riparte da una pagina vuota.
+  fonte.onopen = () => {
+    stato.textContent = "connesso";
+    chat.replaceChildren(vuotoIniziale()); schedeConferma.clear(); impostaOccupato(false);
+  };
+  fonte.onerror = () => { stato.textContent = "riconnessione…"; };
+  fonte.onmessage = (m) => { try { gestisci(JSON.parse(m.data)); } catch (err) { console.error(err); } };
+}
+avvia();
+</script>
+</body>
+</html>
