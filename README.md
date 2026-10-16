@@ -66,6 +66,10 @@ python -m pytest
 
 I test non richiedono Ollama: usano un modello finto con risposte preparate e il vero server MCP su una copia del database.
 
+## Scenari di test
+
+I 18 scenari funzionali (richiesta, esito atteso, esito ottenuto) sono descritti in [tests/scenarios/scenari.md](tests/scenarios/scenari.md) e i risultati, con il confronto tra due versioni del prompt, in [tests/scenarios/risultati.md](tests/scenarios/risultati.md). Log e screenshot di ogni esecuzione sono in `logs/scenari/` e `docs/screenshots/scenari/`.
+
 ## Stato
 
 Work in progress.

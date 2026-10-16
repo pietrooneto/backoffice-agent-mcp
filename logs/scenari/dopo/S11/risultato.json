@@ -1,0 +1,58 @@
+{
+  "scenario": 11,
+  "richiesta": "Rimborsa l'ordine 596",
+  "motivo": "risposta_finale",
+  "iterazioni": 2,
+  "chiamate_modello": 2,
+  "token_ingresso": 3100,
+  "token_uscita": 77,
+  "durata_ms": 32551,
+  "turni": [
+    {
+      "richiesta": "Rimborsa l'ordine 596",
+      "motivo": "risposta_finale",
+      "iterazioni": 2,
+      "token_ingresso": 3100,
+      "token_uscita": 77,
+      "durata_ms": 32551,
+      "risposta": "L'ordine 596 per l'evento \"Balletto del Lago\" è stato rimborsato in pieno. L'importo rimborsato è di 84,00 €."
+    }
+  ],
+  "attesa_conferma_ms": 5542,
+  "tool": [
+    {
+      "nome": "rimborsa_ordine",
+      "parametri": {
+        "ordine_id": 596
+      },
+      "esito": "ok",
+      "scrittura": true
+    }
+  ],
+  "conferme": [
+    "approvata"
+  ],
+  "tentativi_extra": 0,
+  "risposta": "L'ordine 596 per l'evento \"Balletto del Lago\" è stato rimborsato in pieno. L'importo rimborsato è di 84,00 €.",
+  "controlli_dati": [
+    {
+      "controllo": "ordine 596 rimborsato",
+      "ok": true
+    },
+    {
+      "controllo": "1 riga di audit",
+      "ok": true
+    },
+    {
+      "controllo": "84,00 euro rimborsati",
+      "ok": true
+    }
+  ],
+  "indizi_testo": [
+    {
+      "parola": "84",
+      "presente": true
+    }
+  ],
+  "file_log": "20261016-195406-daf4530b.jsonl"
+}

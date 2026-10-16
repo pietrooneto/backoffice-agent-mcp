@@ -1,0 +1,58 @@
+{
+  "scenario": 13,
+  "richiesta": "Annulla l'evento Jazz sotto le Stelle",
+  "motivo": "risposta_finale",
+  "iterazioni": 2,
+  "chiamate_modello": 2,
+  "token_ingresso": 3060,
+  "token_uscita": 73,
+  "durata_ms": 39467,
+  "turni": [
+    {
+      "richiesta": "Annulla l'evento Jazz sotto le Stelle",
+      "motivo": "risposta_finale",
+      "iterazioni": 2,
+      "token_ingresso": 3060,
+      "token_uscita": 73,
+      "durata_ms": 39467,
+      "risposta": "L'evento \"Jazz sotto le Stelle\" non sembra esistere o non ha l'id 123. Potresti fornirmi l'id corretto o cercarlo per titolo e data?"
+    }
+  ],
+  "attesa_conferma_ms": 14906,
+  "tool": [
+    {
+      "nome": "annulla_evento",
+      "parametri": {
+        "evento_id": 123
+      },
+      "esito": "errore_tool",
+      "scrittura": true
+    }
+  ],
+  "conferme": [
+    "approvata"
+  ],
+  "tentativi_extra": 0,
+  "risposta": "L'evento \"Jazz sotto le Stelle\" non sembra esistere o non ha l'id 123. Potresti fornirmi l'id corretto o cercarlo per titolo e data?",
+  "controlli_dati": [
+    {
+      "controllo": "nessuna riga di audit",
+      "ok": true
+    },
+    {
+      "controllo": "nessun evento cambiato di stato",
+      "ok": true
+    },
+    {
+      "controllo": "rimborsi invariati",
+      "ok": true
+    }
+  ],
+  "indizi_testo": [
+    {
+      "parola": "annullat",
+      "presente": false
+    }
+  ],
+  "file_log": "20261016-195548-4c74ba67.jsonl"
+}

@@ -1,0 +1,87 @@
+{
+  "scenario": 10,
+  "richiesta": "Annulla l'evento Serata Cabaret",
+  "motivo": "risposta_finale",
+  "iterazioni": 4,
+  "chiamate_modello": 4,
+  "token_ingresso": 6540,
+  "token_uscita": 115,
+  "durata_ms": 50791,
+  "turni": [
+    {
+      "richiesta": "Annulla l'evento Serata Cabaret",
+      "motivo": "risposta_finale",
+      "iterazioni": 2,
+      "token_ingresso": 3108,
+      "token_uscita": 62,
+      "durata_ms": 23707,
+      "risposta": "Ho trovato l'evento \"Serata Cabaret\" in vendita. Vuoi annullare questo evento e rimborsare tutti gli ordini associati?"
+    },
+    {
+      "richiesta": "Sì, confermo",
+      "motivo": "risposta_finale",
+      "iterazioni": 2,
+      "token_ingresso": 3432,
+      "token_uscita": 53,
+      "durata_ms": 27084,
+      "risposta": "L'evento \"Serata Cabaret\" è stato annullato e tutti gli ordini associati sono stati rimborsati."
+    }
+  ],
+  "attesa_conferma_ms": 5364,
+  "tool": [
+    {
+      "nome": "cerca_eventi",
+      "parametri": {
+        "titolo": "Serata Cabaret"
+      },
+      "esito": "ok",
+      "scrittura": false
+    },
+    {
+      "nome": "annulla_evento",
+      "parametri": {
+        "evento_id": 12
+      },
+      "esito": "ok",
+      "scrittura": true
+    }
+  ],
+  "conferme": [
+    "approvata"
+  ],
+  "tentativi_extra": 0,
+  "risposta": "L'evento \"Serata Cabaret\" è stato annullato e tutti gli ordini associati sono stati rimborsati.",
+  "controlli_dati": [
+    {
+      "controllo": "evento 12 annullato",
+      "ok": true
+    },
+    {
+      "controllo": "1 riga di audit",
+      "ok": true
+    },
+    {
+      "controllo": "26 rimborsi in piu'",
+      "ok": true
+    },
+    {
+      "controllo": "1.402,00 euro rimborsati",
+      "ok": true
+    }
+  ],
+  "indizi_testo": [
+    {
+      "parola": "26",
+      "presente": false
+    },
+    {
+      "parola": "1402",
+      "presente": false
+    },
+    {
+      "parola": "1.402",
+      "presente": false
+    }
+  ],
+  "file_log": "20261016-195244-c121d868.jsonl"
+}

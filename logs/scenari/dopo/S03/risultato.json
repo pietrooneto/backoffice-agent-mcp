@@ -1,0 +1,61 @@
+{
+  "scenario": 3,
+  "richiesta": "Quanti ordini ha fatto Marco Rossi?",
+  "motivo": "risposta_finale",
+  "iterazioni": 2,
+  "chiamate_modello": 2,
+  "token_ingresso": 3117,
+  "token_uscita": 75,
+  "durata_ms": 27478,
+  "turni": [
+    {
+      "richiesta": "Quanti ordini ha fatto Marco Rossi?",
+      "motivo": "risposta_finale",
+      "iterazioni": 2,
+      "token_ingresso": 3117,
+      "token_uscita": 75,
+      "durata_ms": 27478,
+      "risposta": "Sono stati trovati due clienti con il nome e cognome Marco Rossi. Per favore, specifica quale intende l'operatore inserendo l'id del cliente oppure l'email."
+    }
+  ],
+  "attesa_conferma_ms": 0,
+  "tool": [
+    {
+      "nome": "storico_acquisti_cliente",
+      "parametri": {
+        "nome": "Marco",
+        "cognome": "Rossi"
+      },
+      "esito": "errore_tool",
+      "scrittura": false
+    }
+  ],
+  "conferme": [],
+  "tentativi_extra": 0,
+  "risposta": "Sono stati trovati due clienti con il nome e cognome Marco Rossi. Per favore, specifica quale intende l'operatore inserendo l'id del cliente oppure l'email.",
+  "controlli_dati": [
+    {
+      "controllo": "nessuna riga di audit",
+      "ok": true
+    },
+    {
+      "controllo": "nessun evento cambiato di stato",
+      "ok": true
+    },
+    {
+      "controllo": "rimborsi invariati",
+      "ok": true
+    }
+  ],
+  "indizi_testo": [
+    {
+      "parola": "Rossi",
+      "presente": true
+    },
+    {
+      "parola": "2",
+      "presente": false
+    }
+  ],
+  "file_log": "20261016-194620-1483a024.jsonl"
+}

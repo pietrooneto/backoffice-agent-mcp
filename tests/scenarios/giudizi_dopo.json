@@ -1,0 +1,17 @@
+{
+  "1": {"esito": "riuscito", "nota": "Risposta corretta (2 posti: platea e gradinata), elencata per settore."},
+  "2": {"esito": "riuscito", "nota": "Risposta corretta: 8 eventi."},
+  "3": {"esito": "parziale", "nota": "Segnala due clienti omonimi e non sceglie, ma non li elenca e chiede ancora \"l'id del cliente oppure l'email\", nonostante la regola sul non chiedere id."},
+  "4": {"esito": "riuscito", "nota": "Dice che non trova nessun Luigi Verdi."},
+  "5": {"esito": "riuscito", "nota": "Rifiuta e dice di che cosa si occupa (piccolo miglioramento rispetto al primo giro)."},
+  "6": {"esito": "parziale", "nota": "Miglioramento: non sceglie piu' da solo e non propone nessuna scrittura. Ma la domanda e' confusa (\"Chiudo le vendite per questo evento? Chiudo l'evento?\") e non mette chiaramente di fronte le due alternative."},
+  "7": {"esito": "riuscito", "nota": "Miglioramento: elenca le due opzioni (Milano, Arena Nord, 12/12/2026 e Roma, Palasport Sud, 23/01/2027) e chiede quale. Nessuna scrittura."},
+  "8": {"esito": "riuscito", "nota": "Come nel primo giro: conferma, evento 12 a vendite chiuse, risposta corretta."},
+  "9": {"esito": "parziale", "nota": "Difetto non corretto: chiede ancora conferma a parole prima di chiamare il tool, nonostante la regola. Dopo il si' e' comparsa la scheda, rifiutata: nessun dato modificato."},
+  "10": {"esito": "parziale", "nota": "Dati corretti (evento annullato, ordini rimborsati) ma la risposta e' piu' povera di prima: non riporta il numero degli ordini ne' l'importo. Ha di nuovo chiesto conferma a parole."},
+  "11": {"esito": "riuscito", "nota": "Miglioramento: ha chiamato il tool con il solo ordine_id, senza il motivo segnaposto. Rimborsati 84,00 euro."},
+  "12": {"esito": "riuscito", "nota": "Rifiuto del tool (meno di 48 ore) spiegato correttamente, senza il suggerimento fuori luogo del primo giro."},
+  "13": {"esito": "non_riuscito", "nota": "Difetto non corretto: non ha cercato l'evento, ha inventato l'id 123 e la scheda mostrava solo quel numero. Poi ha detto che l'evento \"non sembra esistere\"."},
+  "14": {"esito": "riuscito", "nota": "Ha comunicato l'errore temporaneo del database senza inventare numeri."},
+  "15": {"esito": "riuscito", "nota": "Arresto per limite di iterazioni con messaggio chiaro."}
+}

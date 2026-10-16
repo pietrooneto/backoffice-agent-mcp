@@ -1,0 +1,64 @@
+{
+  "scenario": 15,
+  "richiesta": "Quanti posti restano per la Rassegna Rock Club?",
+  "motivo": "limite_iterazioni",
+  "iterazioni": 2,
+  "chiamate_modello": 2,
+  "token_ingresso": 3117,
+  "token_uscita": 95,
+  "durata_ms": 31883,
+  "turni": [
+    {
+      "richiesta": "Quanti posti restano per la Rassegna Rock Club?",
+      "motivo": "limite_iterazioni",
+      "iterazioni": 2,
+      "token_ingresso": 3117,
+      "token_uscita": 95,
+      "durata_ms": 31883,
+      "risposta": "Mi sono fermato dopo 2 iterazioni senza arrivare a una risposta. Prova a riformulare la richiesta in modo piu' preciso."
+    }
+  ],
+  "attesa_conferma_ms": 0,
+  "tool": [
+    {
+      "nome": "cerca_eventi",
+      "parametri": {
+        "titolo": "Rassegna Rock Club"
+      },
+      "esito": "ok",
+      "scrittura": false
+    },
+    {
+      "nome": "dettaglio_evento",
+      "parametri": {
+        "evento_id": 9
+      },
+      "esito": "ok",
+      "scrittura": false
+    }
+  ],
+  "conferme": [],
+  "tentativi_extra": 0,
+  "risposta": "Mi sono fermato dopo 2 iterazioni senza arrivare a una risposta. Prova a riformulare la richiesta in modo piu' preciso.",
+  "controlli_dati": [
+    {
+      "controllo": "nessuna riga di audit",
+      "ok": true
+    },
+    {
+      "controllo": "nessun evento cambiato di stato",
+      "ok": true
+    },
+    {
+      "controllo": "rimborsi invariati",
+      "ok": true
+    }
+  ],
+  "indizi_testo": [
+    {
+      "parola": "iterazion",
+      "presente": true
+    }
+  ],
+  "file_log": "20261016-195759-a42a9dfe.jsonl"
+}

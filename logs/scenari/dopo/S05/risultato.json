@@ -1,0 +1,42 @@
+{
+  "scenario": 5,
+  "richiesta": "Che tempo fa domani a Milano?",
+  "motivo": "risposta_finale",
+  "iterazioni": 1,
+  "chiamate_modello": 1,
+  "token_ingresso": 1497,
+  "token_uscita": 65,
+  "durata_ms": 18958,
+  "turni": [
+    {
+      "richiesta": "Che tempo fa domani a Milano?",
+      "motivo": "risposta_finale",
+      "iterazioni": 1,
+      "token_ingresso": 1497,
+      "token_uscita": 65,
+      "durata_ms": 18958,
+      "risposta": "Mi dispiace, ma non posso aiutarti a consultare il tempo. Mi occupo della gestione degli eventi, ordini e clienti della piattaforma di ticketing. Ti consiglio di consultare un servizio meteorologico per avere le previsioni meteorologiche."
+    }
+  ],
+  "attesa_conferma_ms": 0,
+  "tool": [],
+  "conferme": [],
+  "tentativi_extra": 0,
+  "risposta": "Mi dispiace, ma non posso aiutarti a consultare il tempo. Mi occupo della gestione degli eventi, ordini e clienti della piattaforma di ticketing. Ti consiglio di consultare un servizio meteorologico per avere le previsioni meteorologiche.",
+  "controlli_dati": [
+    {
+      "controllo": "nessuna riga di audit",
+      "ok": true
+    },
+    {
+      "controllo": "nessun evento cambiato di stato",
+      "ok": true
+    },
+    {
+      "controllo": "rimborsi invariati",
+      "ok": true
+    }
+  ],
+  "indizi_testo": [],
+  "file_log": "20261016-194755-2db96182.jsonl"
+}
