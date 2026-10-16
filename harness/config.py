@@ -35,6 +35,7 @@ class Configurazione:
     timeout_tool: float = 60
     num_ctx: int = 8192
     variante_prompt: str = "base"
+    controlli: bool = True  # anteprima delle scritture e controllo degli id (CONTROLLI_HARNESS=0 per disattivarli)
     log_dir: Path = ROOT / "logs"
 
     @classmethod
@@ -53,5 +54,6 @@ class Configurazione:
             timeout_tool=float(e.get("TIMEOUT_TOOL") or 60),
             num_ctx=int(e.get("NUM_CTX") or 8192),
             variante_prompt=e.get("VARIANTE_PROMPT") or "base",
+            controlli=(e.get("CONTROLLI_HARNESS") or "1").strip().lower() not in {"0", "no", "false"},
             log_dir=log_dir if log_dir.is_absolute() else ROOT / log_dir,
         )

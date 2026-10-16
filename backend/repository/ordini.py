@@ -57,6 +57,28 @@ def applica_rimborso(
     )
 
 
+def verifica_rimborsabile(ordine_id: int, stato: str, data_evento: str, adesso: datetime) -> None:
+    """Regole del rimborso di un singolo ordine (usate sia dalla scrittura sia dall'anteprima).
+
+    Solleva StatoNonValido se l'ordine non e' pagato e FuoriTermine se mancano meno di
+    TERMINE_RIMBORSO_ORE all'evento.
+    """
+    if stato != "pagato":
+        raise StatoNonValido(
+            f"L'ordine {ordine_id} e' gia' nello stato '{stato}': si possono rimborsare solo ordini pagati."
+        )
+    ore_mancanti = (da_testo(data_evento) - adesso).total_seconds() / 3600
+    if ore_mancanti < TERMINE_RIMBORSO_ORE:
+        if ore_mancanti <= 0:
+            dettaglio = "l'evento si e' gia' svolto"
+        else:
+            dettaglio = f"all'evento mancano circa {ore_mancanti:.0f} ore"
+        raise FuoriTermine(
+            f"Rimborso non consentito: {dettaglio}, ma il rimborso e' possibile "
+            f"solo fino a {TERMINE_RIMBORSO_ORE} ore prima dell'evento."
+        )
+
+
 def rimborsa_ordine(
     conn: sqlite3.Connection, ordine_id: int, motivo: str, adesso: datetime
 ) -> dict:
@@ -79,22 +101,7 @@ def rimborsa_ordine(
         ).fetchone()
         if riga is None:
             raise NonTrovato(f"Nessun ordine con id {ordine_id}.")
-        if riga["stato"] != "pagato":
-            raise StatoNonValido(
-                f"L'ordine {ordine_id} e' gia' nello stato '{riga['stato']}': "
-                "si possono rimborsare solo ordini pagati."
-            )
-
-        ore_mancanti = (da_testo(riga["data_evento"]) - adesso).total_seconds() / 3600
-        if ore_mancanti < TERMINE_RIMBORSO_ORE:
-            if ore_mancanti <= 0:
-                dettaglio = "l'evento si e' gia' svolto"
-            else:
-                dettaglio = f"all'evento mancano circa {ore_mancanti:.0f} ore"
-            raise FuoriTermine(
-                f"Rimborso non consentito: {dettaglio}, ma il rimborso e' possibile "
-                f"solo fino a {TERMINE_RIMBORSO_ORE} ore prima dell'evento."
-            )
+        verifica_rimborsabile(ordine_id, riga["stato"], riga["data_evento"], adesso)
 
         applica_rimborso(conn, ordine_id, riga["totale_centesimi"], motivo, adesso)
         scrivi_audit(conn, "rimborsa_ordine", {"ordine_id": ordine_id, "motivo": motivo}, adesso)

@@ -46,9 +46,11 @@ def provider_simulato(n: int):
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("numero", type=int)
-    parser.add_argument("--fase", choices=["prima", "dopo"], required=True)
+    parser.add_argument("--fase", choices=["prima", "dopo", "controlli"], required=True)
     parser.add_argument("--porta", type=int, default=8100)
     parser.add_argument("--prompt", default="base")
+    parser.add_argument("--senza-controlli", action="store_true",
+                        help="disattiva anteprima e controllo degli id (comportamento dei primi due giri)")
     args = parser.parse_args()
 
     cartella = ROOT / "logs" / "scenari" / args.fase / f"S{args.numero:02d}"
@@ -58,6 +60,7 @@ def main() -> None:
 
     os.environ.update({
         "DB_PATH": str(db), "LOG_DIR": str(cartella / "log"), "VARIANTE_PROMPT": args.prompt,
+        "CONTROLLI_HARNESS": "0" if args.senza_controlli else "1",
         **ENV_SCENARIO.get(args.numero, {}),
     })
     (cartella / "pid.txt").write_text(str(os.getpid()), encoding="utf-8")

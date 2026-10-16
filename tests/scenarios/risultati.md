@@ -85,3 +85,27 @@ Complessivamente il prompt v2 non è un miglioramento netto: un esito sale (7), 
 - Controlli lato harness suggeriti dai risultati, non implementati: mostrare nella scheda di conferma il nome dell'evento o del cliente e non soltanto l'id (scenario 13), rifiutare prima della conferma le chiamate che violano una regola nota, come il termine di rimborso (scenario 12), e bloccare un id mai letto in un risultato dei tool.
 - La conferma umana ha svolto il suo compito di protezione: negli scenari 6, 9 e 13 ha impedito, o avrebbe potuto impedire, una modifica non voluta. Non protegge però da una conferma data senza capire che cosa mostra la scheda, come nel caso di un id inventato.
 - Costi: con un modello locale non c'è costo per token. Il costo di esercizio è il tempo di calcolo: circa 41 secondi per richiesta su questo computer, con una media di 3.900 token in ingresso e 100 in uscita. Il costo in ingresso è dominato dalla ripetizione, a ogni passo, del prompt e degli schemi dei sette tool (circa 1.300 token).
+
+## Terzo giro: controlli nell'harness (prompt v2)
+
+Dai risultati dei primi due giri sono stati aggiunti tre controlli nell'harness, indipendenti dal prompt e disattivabili con `CONTROLLI_HARNESS=0`:
+
+1. **Anteprima dell'azione.** Prima di chiedere la conferma, l'harness chiede al server (tool di servizio `anteprima_azione`, nascosto al modello) se le regole permettono la scrittura e che cosa farebbe. Se è vietata (evento già annullato, rimborso fuori termine, id inesistente) l'operatore non viene disturbato e l'errore torna al modello. Se è ammessa, la scheda di conferma mostra il riepilogo in chiaro (nomi, numeri, importi) e non soltanto l'id. Le regole sono le stesse funzioni usate dalle scritture, quindi anteprima ed esecuzione non possono divergere.
+2. **Id mai visti.** Una scrittura può usare solo id che l'operatore ha scritto o che sono comparsi nei risultati dei tool della conversazione; un id inventato viene respinto senza chiedere conferma.
+3. **Interruttore** per tornare al comportamento dei primi due giri.
+
+Sono stati ripetuti sette scenari: i cinque su cui i controlli dovrebbero incidere (6, 9, 10, 12, 13) e due di controllo contro le regressioni (8, 11).
+
+| N | Scenario | Esito con il prompt v2 | Esito con i controlli | Che cosa è cambiato |
+|---|----------|------------------------|-----------------------|---------------------|
+| 6 | Richiesta ambigua | parziale | parziale | Nulla: i controlli non riguardano questo caso. |
+| 8 | Scrittura approvata | riuscito | riuscito | Nessuna regressione. La scheda dice quale evento chiude e quanti biglietti sono venduti. |
+| 9 | Conferma negata | parziale | riuscito | La scheda riporta «annullare Il Misantropo e rimborsare 33 ordini, 2.640,00 euro». Il turno in più a parole non c'è stato, ma a parità di prompt è variabilità del modello, non effetto dei controlli. |
+| 10 | Annullamento a cascata | parziale | parziale | La scheda ora riporta 26 ordini, 59 biglietti e 1.402,00 euro prima dell'approvazione; la risposta finale del modello resta senza numeri. |
+| 11 | Rimborso valido | riuscito | riuscito | Nessuna regressione. La scheda nomina il cliente, i biglietti, l'evento e l'importo. |
+| 12 | Rimborso oltre il termine | riuscito | riuscito | Il rimborso impossibile è respinto prima della conferma: nessuna scheda mostrata all'operatore. |
+| 13 | Evento già annullato | non riuscito | parziale | L'id inventato è respinto come id non verificato, senza scheda di conferma. Il modello però non si riprende e scrive una risposta che a metà frase passa a caratteri cinesi. |
+
+Sui sette scenari ripetuti: 4 riusciti e 3 parziali, contro 2 riusciti, 4 parziali e 1 non riuscito con il solo prompt v2. Il difetto più grave (l'id inventato nella scheda di conferma) è stato eliminato dall'harness; i difetti che dipendono dalla qualità delle risposte del modello (domande poco chiare, risposte senza numeri, caratteri cinesi) restano. Token in media: 4.078 in ingresso e 94 in uscita sui sette scenari (con il solo prompt v2, sugli stessi scenari, 4.323 e 95). Il secondo giro dello scenario 13 ha impiegato 107 secondi perché il modello si era scaricato dalla memoria e il primo passo comprende il ricaricamento.
+
+Una cosa va detta sulla variabilità: lo scenario 9 con lo stesso prompt si è comportato in modo diverso in due esecuzioni (a parole al primo giro, subito la scheda al terzo). Con una sola esecuzione per giro non si può separare l'effetto di una modifica dal rumore del modello; i controlli dell'harness, a differenza del prompt, hanno un effetto deterministico, verificato anche dai test automatici.

@@ -58,6 +58,10 @@ python -m mcp_server
 
 Tutto in `.env` (vedi `.env.example`). Per cambiare modello basta `OLLAMA_MODEL`; per usare un altro server compatibile OpenAI, `LLM_PROVIDER=openai_compat` e `OPENAI_BASE_URL`. Il codice non cambia.
 
+## Controlli dell'harness sulle scritture
+
+Prima di chiedere la conferma per un tool di scrittura l'harness (1) verifica che gli id usati siano stati scritti dall'operatore o letti dai tool, e non inventati dal modello, e (2) chiede al server un'anteprima dell'azione: se le regole la vietano l'operatore non viene disturbato, altrimenti la scheda di conferma mostra che cosa succederà davvero (nomi, numeri, importi). Si possono disattivare con `CONTROLLI_HARNESS=0`. L'anteprima usa il tool di servizio `anteprima_azione` del server MCP, che l'harness non mostra al modello.
+
 ## Test
 
 ```bash

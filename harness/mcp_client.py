@@ -13,6 +13,10 @@ from .config import ROOT
 # Variabili d'ambiente che il server MCP deve ereditare (il resto non viene passato).
 VARIABILI_SERVER = ("DB_PATH", "RIFERIMENTO_ORA", "SIMULA_GUASTO")
 
+# Tool che il server espone solo per l'harness: non vengono mai mostrati al modello.
+STRUMENTI_DI_SERVIZIO = frozenset({"anteprima_azione"})
+NOME_ANTEPRIMA = "anteprima_azione"
+
 
 @dataclass
 class InfoTool:
@@ -36,6 +40,7 @@ class ClientMcp:
         self._stack: AsyncExitStack | None = None
         self._sessione: ClientSession | None = None
         self.strumenti: list[InfoTool] = []
+        self.ha_anteprima = False
 
     async def __aenter__(self) -> "ClientMcp":
         env = {k: os.environ[k] for k in VARIABILI_SERVER if k in os.environ}
@@ -52,7 +57,8 @@ class ClientMcp:
         except BaseException:
             await self._stack.aclose()
             raise
-        self.strumenti = [
+        self.ha_anteprima = any(t.name == NOME_ANTEPRIMA for t in elenco.tools)
+        self.strumenti = [  # solo quelli per il modello: i tool di servizio restano all'harness
             InfoTool(
                 nome=t.name,
                 descrizione=t.description or "",
@@ -61,6 +67,7 @@ class ClientMcp:
                 scrittura=not (t.annotations is not None and t.annotations.read_only_hint is True),
             )
             for t in elenco.tools
+            if t.name not in STRUMENTI_DI_SERVIZIO
         ]
         return self
 

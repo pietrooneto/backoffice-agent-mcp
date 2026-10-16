@@ -2,7 +2,7 @@
 # Uso:  .\tests\scenarios\chiudi_scenario.ps1 -N 1 -Fase prima -Immagine mcp-Claude_Browser-blob-....jpg
 param(
     [Parameter(Mandatory = $true)][int]$N,
-    [Parameter(Mandatory = $true)][ValidateSet("prima", "dopo")][string]$Fase,
+    [Parameter(Mandatory = $true)][ValidateSet("prima", "dopo", "controlli")][string]$Fase,
     [string]$Immagine
 )
 $radice = Resolve-Path (Join-Path $PSScriptRoot "..\..")

@@ -1,0 +1,9 @@
+{
+  "6": {"esito": "parziale", "nota": "Invariato rispetto al prompt v2: non agisce da solo, ma la domanda e' confusa. I controlli non riguardano questo caso."},
+  "8": {"esito": "riuscito", "nota": "Nessuna regressione. La scheda dice: chiudere le vendite dell'evento Serata Cabaret (Cagliari, 25/11/2026 21:00), venduti 59 su 140."},
+  "9": {"esito": "riuscito", "nota": "In un solo turno: scheda con il riepilogo (annullare Il Misantropo e rimborsare 33 ordini, 2.640,00 euro), rifiuto rispettato, nessuna modifica. Attenzione: a parita' di prompt il giro precedente aveva chiesto conferma a parole, quindi il miglioramento di questo scenario dipende dalla variabilita' del modello, non dai controlli."},
+  "10": {"esito": "parziale", "nota": "Dati corretti. La scheda ora dice che cosa succede (26 ordini, 59 biglietti, 1.402,00 euro) e l'operatore lo legge prima di approvare; la risposta finale del modello pero' non riporta i numeri. Ha ancora chiesto conferma a parole al primo turno."},
+  "11": {"esito": "riuscito", "nota": "Nessuna regressione. La scheda nomina il cliente (Davide Greco), i biglietti, l'evento e l'importo (84,00 euro)."},
+  "12": {"esito": "riuscito", "nota": "Obiettivo raggiunto: il rimborso fuori termine e' respinto dall'anteprima (non ammessa) prima della conferma, l'operatore non vede nessuna scheda e il motivo (meno di 48 ore) e' spiegato. Nota: la frase finale suggerisce di procedere comunque, cosa non possibile."},
+  "13": {"esito": "parziale", "nota": "Il difetto grave e' risolto: l'id inventato (456) e' respinto come id non verificato e nessuna scheda e' mostrata. Il modello pero' non si riprende: non cerca l'evento e scrive una risposta che a meta' frase passa a caratteri cinesi. Nessuna modifica ai dati."}
+}

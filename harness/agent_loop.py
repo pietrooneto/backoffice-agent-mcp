@@ -12,6 +12,7 @@ negata, timeout) torna al modello come risultato: l'harness non si ferma per que
 """
 import asyncio
 import json
+import re
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -20,7 +21,7 @@ from jsonschema import Draft202012Validator
 
 from .conferma import Conferma, RichiestaConferma
 from .llm.base import ChiamataTool, ErroreModello, LLMProvider, Messaggio, RispostaModello, SpecTool
-from .mcp_client import ClientMcp, InfoTool
+from .mcp_client import NOME_ANTEPRIMA, ClientMcp, InfoTool
 from .prompt import PROMPT_SISTEMA
 from .registro import Registro
 
@@ -95,6 +96,26 @@ def pulisci_schema(schema):
     return pulito
 
 
+def raccogli_id(valore, noti: dict[str, set[int]]) -> None:
+    """Annota gli id che compaiono in un risultato dei tool, per nome di parametro (evento_id, ordine_id...).
+
+    Un oggetto con "id" e "titolo" e' un evento, uno con "id" e "cognome" e' un cliente.
+    """
+    if isinstance(valore, list):
+        for voce in valore:
+            raccogli_id(voce, noti)
+    elif isinstance(valore, dict):
+        if isinstance(valore.get("id"), int) and not isinstance(valore["id"], bool):
+            if "titolo" in valore:
+                noti.setdefault("evento_id", set()).add(valore["id"])
+            elif "cognome" in valore:
+                noti.setdefault("cliente_id", set()).add(valore["id"])
+        for chiave, voce in valore.items():
+            if chiave.endswith("_id") and isinstance(voce, int) and not isinstance(voce, bool):
+                noti.setdefault(chiave, set()).add(voce)
+            raccogli_id(voce, noti)
+
+
 class Agente:
     """Un agente di back-office: tiene la conversazione e gestisce una richiesta alla volta."""
 
@@ -108,6 +129,7 @@ class Agente:
         tentativi_extra_risposta_vuota: int = 1,
         timeout_tool: float = 60,
         prompt_sistema: str = PROMPT_SISTEMA,
+        controlli: bool = True,
     ) -> None:
         self.provider = provider
         self.mcp = mcp
@@ -117,6 +139,11 @@ class Agente:
         self.tentativi_extra = tentativi_extra_risposta_vuota
         self.timeout_tool = timeout_tool
         self.prompt_sistema = prompt_sistema
+        self.controlli = controlli  # anteprima delle scritture e controllo degli id
+
+        # Id che il modello puo' usare nelle scritture: scritti dall'operatore o letti nei risultati dei tool.
+        self._id_operatore: set[int] = set()
+        self._id_letti: dict[str, set[int]] = {}
 
         self._info: dict[str, InfoTool] = {t.nome: t for t in mcp.strumenti}
         self.strumenti = [SpecTool(t.nome, t.descrizione, pulisci_schema(t.schema)) for t in mcp.strumenti]
@@ -128,6 +155,8 @@ class Agente:
         """Dimentica la conversazione (nuova chat)."""
         self.storia.clear()
         self._gia_registrati = 0
+        self._id_operatore.clear()
+        self._id_letti.clear()
 
     # ------------------------------------------------------------------ ciclo
 
@@ -141,6 +170,7 @@ class Agente:
             modello=self.provider.modello, provider=self.provider.nome, max_iterazioni=self.max_iterazioni,
         )
         self.storia.append(Messaggio("user", richiesta))
+        self._id_operatore.update(int(n) for n in re.findall(r"\d+", richiesta))
 
         for iterazione in range(1, self.max_iterazioni + 1):
             turno.iterazione = iterazione
@@ -227,6 +257,11 @@ class Agente:
         turno.stato.chiamate_tool += 1
 
         esito = await self._decidi_ed_esegui(chiamata, info, turno)
+        if esito.esito == "ok":  # gli id letti qui potranno essere usati nelle scritture successive
+            try:
+                raccogli_id(json.loads(esito.testo), self._id_letti)
+            except json.JSONDecodeError:
+                pass
 
         testo = esito.testo
         if len(testo) > LIMITE_RISULTATO:
@@ -255,15 +290,27 @@ class Agente:
             dettaglio = "; ".join(f"{'.'.join(map(str, e.path)) or 'parametri'}: {e.message}" for e in problemi[:5])
             return _EsitoTool(f"Errore: parametri non validi per '{info.nome}': {dettaglio}.", "parametri_non_validi")
 
-        # 4. Conferma umana per i tool che modificano i dati.
+        # 4. Controlli sulle scritture, prima di disturbare l'operatore: id mai visti e anteprima delle regole.
+        riepilogo = None
+        if info.scrittura and self.controlli:
+            problema = self._id_non_verificato(info, chiamata.argomenti)
+            if problema:
+                return _EsitoTool(problema, "id_non_verificato")
+            if self.mcp.ha_anteprima:
+                anteprima = await self._anteprima(info, chiamata, turno)
+                if isinstance(anteprima, _EsitoTool):  # vietata dalle regole, o guasto dell'anteprima
+                    return anteprima
+                riepilogo = anteprima
+
+        # 5. Conferma umana per i tool che modificano i dati.
         attesa_ms = 0
         if info.scrittura:
-            richiesta = RichiestaConferma(info.nome, info.descrizione, chiamata.argomenti)
+            richiesta = RichiestaConferma(info.nome, info.descrizione, chiamata.argomenti, riepilogo)
             inizio_attesa = time.monotonic()
             approvata = await self.conferma.chiedi(richiesta)
             attesa_ms = int((time.monotonic() - inizio_attesa) * 1000)
             self.registro.scrivi("conferma", turno=turno.numero, iterazione=turno.iterazione,
-                                 tool=info.nome, parametri=chiamata.argomenti,
+                                 tool=info.nome, parametri=chiamata.argomenti, riepilogo=riepilogo,
                                  decisione="approvata" if approvata else "negata", attesa_ms=attesa_ms)
             if not approvata:
                 turno.stato.conferme_negate += 1
@@ -273,7 +320,7 @@ class Agente:
                     "rifiutato", attesa_conferma_ms=attesa_ms,
                 )
 
-        # 5. Esecuzione sul server MCP.
+        # 6. Esecuzione sul server MCP.
         try:
             risultato = await asyncio.wait_for(self.mcp.chiama(info.nome, chiamata.argomenti), self.timeout_tool)
         except asyncio.TimeoutError:
@@ -289,6 +336,46 @@ class Agente:
         if risultato.errore:
             return _EsitoTool(risultato.testo, "errore_tool", attesa_conferma_ms=attesa_ms)
         return _EsitoTool(risultato.testo, "ok", attesa_conferma_ms=attesa_ms)
+
+    def _id_non_verificato(self, info: InfoTool, argomenti: dict) -> str | None:
+        """Una scrittura puo' usare solo id scritti dall'operatore o letti nei risultati dei tool: non inventati."""
+        for nome, valore in argomenti.items():
+            if not nome.endswith("_id") or not isinstance(valore, int) or isinstance(valore, bool):
+                continue
+            if valore in self._id_operatore or valore in self._id_letti.get(nome, set()):
+                continue
+            return (
+                f"Errore: l'id {nome} {valore} non e' comparso ne' nella richiesta dell'operatore ne' nei risultati "
+                "dei tool. Non inventare id: cercalo con i tool di lettura e usa quello trovato."
+            )
+        return None
+
+    async def _anteprima(self, info: InfoTool, chiamata: ChiamataTool, turno: _Turno) -> "str | _EsitoTool":
+        """Chiede al server di verificare la scrittura senza eseguirla. Restituisce il riepilogo, o un errore."""
+        inizio = time.monotonic()
+        try:
+            risultato = await asyncio.wait_for(
+                self.mcp.chiama(NOME_ANTEPRIMA, {"tool": info.nome, "parametri": chiamata.argomenti}), self.timeout_tool
+            )
+        except asyncio.TimeoutError:
+            return _EsitoTool(f"Errore: la verifica di '{info.nome}' non ha risposto in tempo. Nessuna modifica eseguita.", "timeout")
+        except Exception as errore:
+            return _EsitoTool(f"Errore di comunicazione con il server dei tool: {errore}", "errore_trasporto", fatale=True)
+        if risultato.errore:
+            return _EsitoTool(risultato.testo, "errore_tool")
+        try:
+            dati = json.loads(risultato.testo)
+        except json.JSONDecodeError:
+            return _EsitoTool("Errore: risposta di verifica non leggibile. Nessuna modifica eseguita.", "errore_tool")
+
+        self.registro.scrivi(
+            "anteprima", turno=turno.numero, iterazione=turno.iterazione, tool=info.nome, parametri=chiamata.argomenti,
+            ammessa=dati.get("ammessa"), riepilogo=dati.get("riepilogo"), motivo=dati.get("motivo"),
+            durata_ms=int((time.monotonic() - inizio) * 1000),
+        )
+        if not dati.get("ammessa"):
+            return _EsitoTool(f"Errore: azione non eseguibile. {dati.get('motivo')}", "non_ammessa")
+        return dati.get("riepilogo")
 
     # ------------------------------------------------------------------ chiusura
 

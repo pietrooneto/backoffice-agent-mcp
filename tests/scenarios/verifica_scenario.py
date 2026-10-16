@@ -66,7 +66,7 @@ INDIZI = {1: ["2"], 2: ["8"], 3: ["Rossi", "2"], 4: ["Verdi"], 7: ["Milano", "Ro
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("numero", type=int)
-    parser.add_argument("--fase", choices=["prima", "dopo"], required=True)
+    parser.add_argument("--fase", choices=["prima", "dopo", "controlli"], required=True)
     parser.add_argument("--cartella", help="cartella dello scenario (se diversa da quella predefinita)")
     args = parser.parse_args()
     n = args.numero

@@ -15,6 +15,7 @@ from mcp_server.tools import TOOLS
 ROOT = Path(__file__).resolve().parents[1]
 LETTURE = {"cerca_eventi", "dettaglio_evento", "storico_acquisti_cliente", "stato_ordine"}
 SCRITTURE = {"chiudi_vendite_evento", "annulla_evento", "rimborsa_ordine"}
+SERVIZIO = {"anteprima_azione"}  # usato solo dall'harness, nascosto al modello
 
 
 @pytest.fixture
@@ -37,9 +38,9 @@ def dati(risultato):
 
 # ---------- catalogo dei tool ----------
 
-def test_sette_tool_con_nomi_attesi(server):
+def test_sette_tool_per_il_modello_piu_uno_di_servizio(server):
     nomi = {t.name for t in asyncio.run(server.list_tools())}
-    assert nomi == LETTURE | SCRITTURE
+    assert nomi == LETTURE | SCRITTURE | SERVIZIO
 
 
 def test_metadati_di_scrittura_per_la_conferma_umana(server):
@@ -173,6 +174,27 @@ def test_rimborso_con_motivo_predefinito(server, conn):
     assert risultato["stato_ordine"] == "rimborsato"
 
 
+# ---------- anteprima (tool di servizio) ----------
+
+def test_anteprima_ammessa_e_vietata_sono_risultati_non_errori(server):
+    ok = dati(chiama(server, "anteprima_azione", tool="annulla_evento", parametri={"evento_id": 12}))
+    assert ok["ammessa"] is True and "26 ordini pagati" in ok["riepilogo"] and ok["motivo"] is None
+
+    vietata = dati(chiama(server, "anteprima_azione", tool="annulla_evento", parametri={"evento_id": 8}))
+    assert vietata["ammessa"] is False and "gia' annullato" in vietata["motivo"]
+
+
+def test_anteprima_non_modifica_i_dati(server, conn):
+    chiama(server, "anteprima_azione", tool="chiudi_vendite_evento", parametri={"evento_id": 12})
+    assert conn.execute("SELECT stato FROM eventi WHERE id = 12").fetchone()["stato"] == "in_vendita"
+    assert conn.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0] == 0
+
+
+def test_anteprima_solo_per_i_tool_di_scrittura(server):
+    with pytest.raises(ToolError):
+        chiama(server, "anteprima_azione", tool="cerca_eventi", parametri={})
+
+
 # ---------- guasti simulati ----------
 
 def test_guasto_simulato_su_un_tool(server, monkeypatch):
@@ -219,7 +241,7 @@ def test_end_to_end_via_stdio(db_modello, tmp_path):
 
     elenco, nomi, ok, parametri_errati, guasto = asyncio.run(scenario())
 
-    assert nomi == LETTURE | SCRITTURE
+    assert nomi == LETTURE | SCRITTURE | SERVIZIO
     scritture = {t.name for t in elenco.tools if t.annotations.read_only_hint is False}
     assert scritture == SCRITTURE
 

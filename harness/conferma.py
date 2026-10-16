@@ -13,6 +13,7 @@ class RichiestaConferma:
     tool: str
     descrizione: str
     argomenti: dict
+    riepilogo: str | None = None  # che cosa succedera' davvero (nomi, numeri, importi), dall'anteprima del server
 
 
 class Conferma(Protocol):
@@ -42,6 +43,6 @@ class ConfermaDaTerminale:
         print("\n  >>> RICHIESTA DI CONFERMA: l'agente vuole modificare i dati")
         print(f"      Tool:      {richiesta.tool}")
         print(f"      Parametri: {json.dumps(richiesta.argomenti, ensure_ascii=False)}")
-        print(f"      Effetto:   {richiesta.descrizione}")
+        print(f"      Effetto:   {richiesta.riepilogo or richiesta.descrizione}")
         risposta = await asyncio.to_thread(input, "      Confermi? [s/N] ")
         return risposta.strip().lower() in {"s", "si", "sì", "y", "yes"}
