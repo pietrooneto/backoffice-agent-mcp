@@ -5,6 +5,7 @@ di conferma come schede con i pulsanti Conferma / Rifiuta. Il server ascolta sol
 """
 import asyncio
 import json
+import sqlite3
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -15,6 +16,8 @@ from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import FileResponse, JSONResponse, PlainTextResponse, StreamingResponse
 from starlette.routing import Route
+
+from backend.repository import connetti_sola_lettura, percorso_db, viste
 
 from ..agent_loop import Agente
 from ..conferma import RichiestaConferma
@@ -165,9 +168,11 @@ def crea_app(
     provider: LLMProvider | None = None,
     env_server: dict[str, str] | None = None,
     timeout_conferma: float = 600,
+    db_path: str | Path | None = None,
 ) -> Starlette:
     config = config or Configurazione.da_ambiente()
     provider = provider or crea_provider(config)
+    percorso_dati = Path(db_path) if db_path else percorso_db()
 
     @asynccontextmanager
     async def ciclo_di_vita(app):
@@ -186,6 +191,25 @@ def crea_app(
             "sessione_id": s.registro.sessione_id,
             "tool": [{"nome": t.nome, "scrittura": t.scrittura} for t in s.mcp.strumenti],
         })
+
+    async def dati(request: Request):
+        """Dati per il pannello informativo: solo lettura, senza passare dai tool dell'agente."""
+
+        def leggi() -> dict:
+            conn = connetti_sola_lettura(percorso_dati)
+            try:
+                return {
+                    "eventi": viste.elenco_eventi(conn),
+                    "movimenti": viste.movimenti_recenti(conn),
+                    "registro": viste.registro_modifiche(conn),
+                }
+            finally:
+                conn.close()
+
+        try:
+            return JSONResponse(await asyncio.to_thread(leggi))
+        except sqlite3.Error as errore:
+            return JSONResponse({"errore": f"Database non leggibile: {errore}"}, status_code=503)
 
     async def eventi(request: Request):
         s: Sessione = request.app.state.sessione
@@ -251,6 +275,7 @@ def crea_app(
         routes=[
             Route("/", pagina),
             Route("/api/stato", stato),
+            Route("/api/dati", dati),
             Route("/api/eventi", eventi),
             Route("/api/messaggio", messaggio, methods=["POST"]),
             Route("/api/conferma", conferma, methods=["POST"]),

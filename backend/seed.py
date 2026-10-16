@@ -104,6 +104,7 @@ def popola(conn: sqlite3.Connection) -> None:
             (titolo, luogo, fmt(data_evento), stato, fmt(creato)),
         )
         evento_id = cur.lastrowid
+        n_rimborsi_evento = 0
 
         for nome_settore, capienza, prezzo in settori:
             cur.execute(
@@ -143,13 +144,23 @@ def popola(conn: sqlite3.Connection) -> None:
                         (ordine_id, f"TKT-{contatore_biglietti:06d}", stato_biglietto),
                     )
                 if stato_ordine == "rimborsato":
-                    motivo = (
-                        "evento annullato" if stato == "annullato" else "richiesta del cliente"
-                    )
+                    n_rimborsi_evento += 1
+                    if stato == "annullato":
+                        motivo = "evento annullato"
+                        # Annullamento 3 giorni prima di "adesso" (o dell'evento); i rimborsi si susseguono
+                        # di minuto in minuto, ma mai prima dell'acquisto.
+                        base = min(ADESSO, data_evento) - timedelta(days=3)
+                        rimborsato_il = max(base + timedelta(minutes=n_rimborsi_evento), quando + timedelta(minutes=5))
+                    else:
+                        motivo = "richiesta del cliente"
+                        rimborsato_il = quando + timedelta(hours=2 + (ordine_id * 7) % 70)
+                    # Calcolo deterministico (nessun numero casuale in piu': i dati restano gli stessi) e mai
+                    # nell'ultima ora prima di "adesso", che resta libera per le azioni fatte dall'agente.
+                    rimborsato_il = min(rimborsato_il, ADESSO - timedelta(hours=1))
                     cur.execute(
                         "INSERT INTO rimborsi (ordine_id, importo_centesimi, motivo, creato_il)"
                         " VALUES (?,?,?,?)",
-                        (ordine_id, totale, motivo, fmt(min(ADESSO, data_evento))),
+                        (ordine_id, totale, motivo, fmt(rimborsato_il)),
                     )
                 venduti += quantita
     conn.commit()

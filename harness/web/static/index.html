@@ -11,6 +11,7 @@
     --utente: #e8eefc; --ok: #1d7a46; --ok-sfondo: #e3f4ea;
     --attenzione: #92580a; --attenzione-sfondo: #fdf0d8;
     --errore: #b3261e; --errore-sfondo: #fbe4e2; --scrittura: #6b3fa0; --scrittura-sfondo: #efe6f8;
+    --neutro-sfondo: #eceef2;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -19,13 +20,14 @@
       --utente: #1f2c4d; --ok: #62d08f; --ok-sfondo: #17301f;
       --attenzione: #f0b85a; --attenzione-sfondo: #3a2c12;
       --errore: #ff8d85; --errore-sfondo: #3b1b19; --scrittura: #c4a0f0; --scrittura-sfondo: #2c2040;
+      --neutro-sfondo: #262c37;
     }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--sfondo); color: var(--testo);
          font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   header { position: sticky; top: 0; z-index: 5; background: var(--pannello); border-bottom: 1px solid var(--bordo); }
-  .contenitore { max-width: 860px; margin: 0 auto; padding: 0 16px; }
+  .contenitore { max-width: 1320px; margin: 0 auto; padding: 0 16px; }
   .testata { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 0; }
   h1 { font-size: 1.1rem; margin: 0; flex: 1 1 auto; }
   .etichetta { font-size: .8rem; color: var(--testo-tenue); border: 1px solid var(--bordo); border-radius: 999px; padding: 2px 10px; }
@@ -35,8 +37,21 @@
   button:disabled { opacity: .5; cursor: not-allowed; }
   button.primario { background: var(--accento); color: var(--accento-testo); border-color: var(--accento); font-weight: 600; }
   button:focus-visible, textarea:focus-visible { outline: 3px solid var(--accento); outline-offset: 2px; }
-  main { padding: 16px 0 190px; }
+
+  /* Due colonne su schermo largo (chat + dati); su schermo stretto il pannello si apre dal pulsante "Dati". */
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  #apri-dati { display: inline-block; }
+  #pannello { display: none; }
+  #pannello.aperto { display: block; }
+  @media (min-width: 1000px) {
+    .layout { grid-template-columns: minmax(0, 1fr) 440px; }
+    #apri-dati { display: none; }
+    #pannello { display: block; }
+  }
+  main.contenitore { padding-top: 16px; padding-bottom: 190px; }
   #chat { display: flex; flex-direction: column; gap: 10px; }
+  /* Quando la pagina scorre su un nuovo elemento, non deve finire sotto la barra di invio fissa. */
+  #chat > * { scroll-margin-bottom: 150px; }
   .vuoto { color: var(--testo-tenue); text-align: center; padding: 28px 0 8px; }
   .suggerimenti { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 12px; }
   .suggerimenti button { font-size: .9rem; padding: 6px 12px; border-radius: 999px; }
@@ -49,10 +64,11 @@
            border-left: 3px solid var(--bordo); overflow-wrap: anywhere; }
   .passo .riga { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: baseline; }
   .passo code { font: .82rem ui-monospace, Consolas, monospace; color: var(--testo); }
-  .badge { font-size: .72rem; font-weight: 600; border-radius: 999px; padding: 1px 8px; background: var(--ok-sfondo); color: var(--ok); }
+  .badge { font-size: .72rem; font-weight: 600; border-radius: 999px; padding: 1px 8px; background: var(--ok-sfondo); color: var(--ok); white-space: nowrap; }
   .badge.attenzione { background: var(--attenzione-sfondo); color: var(--attenzione); }
   .badge.errore { background: var(--errore-sfondo); color: var(--errore); }
   .badge.scrittura { background: var(--scrittura-sfondo); color: var(--scrittura); }
+  .badge.neutro { background: var(--neutro-sfondo); color: var(--testo-tenue); }
   details summary { cursor: pointer; }
   details pre { margin: 6px 0 0; padding: 8px; background: var(--pannello); border: 1px solid var(--bordo);
                 border-radius: 6px; font: .78rem ui-monospace, Consolas, monospace; white-space: pre-wrap;
@@ -66,6 +82,31 @@
   .conferma.risolta { border-color: var(--bordo); opacity: .85; }
   #attesa { color: var(--testo-tenue); font-size: .9rem; padding: 6px 4px; display: none; }
   #attesa.visibile { display: block; }
+
+  /* Pannello dati (sola lettura) */
+  #pannello { align-self: start; position: sticky; top: 72px; background: var(--pannello); border: 1px solid var(--bordo);
+              border-radius: 12px; overflow: hidden; }
+  .pannello-testa { display: flex; align-items: center; gap: 8px; padding: 8px 10px 0; flex-wrap: wrap; }
+  .pannello-testa h2 { font-size: .95rem; margin: 0; flex: 1; }
+  .pannello-testa button { padding: 3px 10px; font-size: .8rem; }
+  .schede { display: flex; gap: 2px; padding: 6px 8px 0; border-bottom: 1px solid var(--bordo); }
+  .schede button { border: none; border-bottom: 3px solid transparent; border-radius: 6px 6px 0 0; background: none;
+                   padding: 6px 10px; font-size: .85rem; color: var(--testo-tenue); position: relative; }
+  .schede button[aria-selected="true"] { color: var(--testo); border-bottom-color: var(--accento); font-weight: 600; }
+  .schede button.novita::after { content: ""; position: absolute; top: 4px; right: 2px; width: 8px; height: 8px;
+                                 border-radius: 50%; background: var(--scrittura); }
+  /* Lascia spazio sotto al pannello per la barra di invio fissa in basso. */
+  .tabella-scroll { max-height: max(180px, calc(100vh - 335px)); overflow: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+  th { position: sticky; top: 0; background: var(--pannello); text-align: left; color: var(--testo-tenue);
+       font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--bordo); white-space: nowrap; }
+  td { padding: 6px 8px; border-bottom: 1px solid var(--bordo); vertical-align: top; overflow-wrap: anywhere; }
+  td small { display: block; color: var(--testo-tenue); font-size: .72rem; }
+  td.num, th.num { text-align: right; white-space: nowrap; }
+  tr.cambiato td { background: var(--attenzione-sfondo); }
+  .nota-pannello { padding: 6px 10px 8px; font-size: .72rem; color: var(--testo-tenue); border-top: 1px solid var(--bordo); }
+  .vuoto-tabella { padding: 18px 12px; color: var(--testo-tenue); font-size: .85rem; }
+
   .compositore { position: fixed; left: 0; right: 0; bottom: 0; background: var(--pannello); border-top: 1px solid var(--bordo); padding: 12px 0; }
   form { display: flex; gap: 10px; align-items: flex-end; }
   textarea { flex: 1; font: inherit; resize: none; min-height: 48px; max-height: 140px; padding: 10px 12px; color: var(--testo);
@@ -80,27 +121,43 @@
     <h1>Assistente di back-office</h1>
     <span class="etichetta" id="modello">modello…</span>
     <span class="etichetta" id="connessione">connessione…</span>
+    <button type="button" id="apri-dati" aria-expanded="false" aria-controls="pannello">Dati</button>
     <button type="button" id="nuova">Nuova chat</button>
   </div>
 </header>
 
-<main class="contenitore">
-  <div id="chat" aria-live="polite">
-    <div class="vuoto" id="vuoto">
-      <p>Scrivi una richiesta in italiano. Prima di ogni modifica ai dati ti verrà chiesta una conferma.</p>
-      <div class="suggerimenti" id="suggerimenti"></div>
+<main class="contenitore layout">
+  <section aria-label="Conversazione">
+    <div id="chat" aria-live="polite">
+      <div class="vuoto" id="vuoto"></div>
     </div>
-  </div>
-  <div id="attesa" role="status"></div>
+    <div id="attesa" role="status"></div>
+  </section>
+
+  <aside id="pannello" aria-label="Dati della piattaforma (sola lettura)">
+    <div class="pannello-testa">
+      <h2>Dati della piattaforma</h2>
+      <button type="button" id="aggiorna">Aggiorna</button>
+    </div>
+    <div class="schede" role="tablist" aria-label="Schede dei dati">
+      <button type="button" role="tab" id="tab-eventi" data-scheda="eventi" aria-selected="true">Eventi</button>
+      <button type="button" role="tab" id="tab-movimenti" data-scheda="movimenti" aria-selected="false">Movimenti</button>
+      <button type="button" role="tab" id="tab-registro" data-scheda="registro" aria-selected="false">Registro modifiche</button>
+    </div>
+    <div class="tabella-scroll" id="contenuto-scheda" role="tabpanel" aria-live="polite"></div>
+    <div class="nota-pannello">Sola lettura: i dati si modificano solo tramite l'agente, con la tua conferma. Evidenziato = cambiato dall'ultimo aggiornamento.</div>
+  </aside>
 </main>
 
 <div class="compositore">
-  <div class="contenitore">
-    <form id="modulo">
-      <textarea id="testo" rows="1" maxlength="2000" placeholder="Es. quanti posti restano per la Rassegna Rock Club?" aria-label="Richiesta"></textarea>
-      <button class="primario" id="invia" type="submit">Invia</button>
-    </form>
-    <div class="nota">Dati interamente sintetici · modello eseguito in locale: ogni passo può richiedere decine di secondi.</div>
+  <div class="contenitore layout">
+    <div>
+      <form id="modulo">
+        <textarea id="testo" rows="1" maxlength="2000" placeholder="Es. quanti posti restano per la Rassegna Rock Club?" aria-label="Richiesta"></textarea>
+        <button class="primario" id="invia" type="submit">Invia</button>
+      </form>
+      <div class="nota">Dati interamente sintetici · modello eseguito in locale: ogni passo può richiedere decine di secondi.</div>
+    </div>
   </div>
 </div>
 
@@ -121,7 +178,7 @@ const nuova = document.getElementById("nuova");
 let occupato = false, inizioAttesa = 0, timer = null;
 const schedeConferma = new Map();
 
-// Tutto il testo del modello e dei tool entra nella pagina come testo semplice (textContent), mai come HTML.
+// Tutto il testo del modello e dei dati entra nella pagina come testo semplice (textContent), mai come HTML.
 function el(tag, classe, contenuto) {
   const e = document.createElement(tag);
   if (classe) e.className = classe;
@@ -162,7 +219,10 @@ function gestisci(e) {
   switch (e.tipo) {
     case "nuova_chat":
       chat.replaceChildren(); schedeConferma.clear(); impostaOccupato(false);
+      for (const nome of Object.keys(cambiati)) cambiati[nome] = new Set();
+      nonViste.clear(); document.querySelectorAll(".schede button").forEach((b) => b.classList.remove("novita"));
       chat.appendChild(vuotoIniziale());
+      aggiornaDati();
       break;
     case "richiesta_utente":
       mostra(el("div", "balloon utente", e.testo));
@@ -191,6 +251,7 @@ function gestisci(e) {
       passo.append(riga);
       const dettaglio = el("details"); dettaglio.append(el("summary", null, "Risultato"), el("pre", null, e.risultato));
       passo.append(dettaglio); mostra(passo);
+      if (e.scrittura && e.esito === "ok") aggiornaDati();  // l'effetto della modifica si vede subito nel pannello
       break;
     }
     case "richiesta_conferma": {
@@ -223,7 +284,7 @@ function gestisci(e) {
       b.append(document.createTextNode(e.risposta));
       b.append(el("div", "meta", e.motivo.replaceAll("_", " ") + " · " + e.iterazioni + " iterazioni · " +
         (e.token_ingresso + e.token_uscita) + " token (↑" + e.token_ingresso + " ↓" + e.token_uscita + ") · " + secondi(e.durata_ms)));
-      mostra(b); impostaOccupato(false);
+      mostra(b); impostaOccupato(false); aggiornaDati();
       break;
     }
     case "errore":
@@ -262,6 +323,107 @@ function ridimensiona() { testo.style.height = "auto"; testo.style.height = Math
 testo.addEventListener("input", ridimensiona);
 nuova.addEventListener("click", async () => { try { await post("/api/nuova"); } catch (err) { alert(err.message); } });
 
+// ---------------------------------------------------------------- pannello dati (sola lettura)
+const euro = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" });
+const eur = (centesimi) => euro.format(centesimi / 100);
+const breve = (data) => String(data).slice(0, 16);
+const CLASSE_STATO = { in_vendita: "", vendite_chiuse: "attenzione", annullato: "errore", bozza: "neutro" };
+
+const SCHEDE = {
+  eventi: {
+    vuoto: "Nessun evento.",
+    chiave: (r) => String(r.id),
+    colonne: [["Evento"], ["Data"], ["Stato"], ["Venduti", "num"]],
+    celle: (r) => {
+      const titolo = el("td"); titolo.append(document.createTextNode(r.titolo), el("small", null, "#" + r.id + " · " + r.luogo));
+      const stato = el("td"); stato.append(el("span", "badge " + (CLASSE_STATO[r.stato] || ""), r.stato.replaceAll("_", " ")));
+      return [titolo, el("td", null, breve(r.data_evento)), stato, el("td", "num", r.venduti + " / " + r.capienza)];
+    },
+  },
+  movimenti: {
+    vuoto: "Nessun movimento.",
+    chiave: (r) => r.tipo + ":" + r.ordine_id,
+    colonne: [["Quando"], ["Cliente / evento"], ["Importo", "num"]],
+    celle: (r) => {
+      const quando = el("td"); quando.append(document.createTextNode(breve(r.quando)),
+        el("small", null, (r.tipo === "rimborso" ? "rimborso" : "acquisto") + " · ordine #" + r.ordine_id));
+      const chi = el("td"); chi.append(document.createTextNode(r.cliente), el("small", null, r.evento + " — " + r.nota));
+      const importo = el("td", "num", (r.tipo === "rimborso" ? "− " : "") + eur(r.importo_centesimi));
+      return [quando, chi, importo];
+    },
+  },
+  registro: {
+    vuoto: "Nessuna modifica registrata: l'agente non ha ancora modificato dati.",
+    chiave: (r) => String(r.id),
+    colonne: [["Quando"], ["Tool e parametri"], ["Esito"]],
+    celle: (r) => {
+      const tool = el("td"); tool.append(document.createTextNode(r.tool), el("small", null, json(r.parametri)));
+      return [el("td", null, breve(r.quando)), tool, el("td", null, r.esito)];
+    },
+  },
+};
+
+let schedaAttiva = "eventi", datiPannello = null, impronte = null, cambiati = { eventi: new Set(), movimenti: new Set(), registro: new Set() };
+const nonViste = new Set();  // schede con novita' che l'operatore non ha ancora aperto
+
+function disegnaScheda() {
+  const contenitore = document.getElementById("contenuto-scheda");
+  const def = SCHEDE[schedaAttiva];
+  const righe = datiPannello ? datiPannello[schedaAttiva] : [];
+  document.querySelectorAll(".schede button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.scheda === schedaAttiva)));
+  if (!datiPannello) { contenitore.replaceChildren(el("div", "vuoto-tabella", "Caricamento…")); return; }
+  if (righe.length === 0) { contenitore.replaceChildren(el("div", "vuoto-tabella", def.vuoto)); return; }
+  const tabella = el("table"), testa = el("tr");
+  for (const [nome, classe] of def.colonne) testa.append(el("th", classe, nome));
+  const thead = el("thead"); thead.append(testa);
+  const corpo = el("tbody");
+  for (const r of righe) {
+    const riga = el("tr", cambiati[schedaAttiva].has(def.chiave(r)) ? "cambiato" : "");
+    riga.append(...def.celle(r)); corpo.append(riga);
+  }
+  tabella.append(thead, corpo);
+  contenitore.replaceChildren(tabella);
+}
+
+async function aggiornaDati() {
+  let nuovi;
+  try {
+    const risposta = await fetch("/api/dati");
+    if (!risposta.ok) throw new Error("stato " + risposta.status);
+    nuovi = await risposta.json();
+  } catch (err) {
+    document.getElementById("contenuto-scheda").replaceChildren(el("div", "vuoto-tabella", "Dati non disponibili: " + err.message));
+    return;
+  }
+  const nuoveImpronte = {};
+  for (const nome of Object.keys(SCHEDE)) {
+    nuoveImpronte[nome] = new Map(nuovi[nome].map((r) => [SCHEDE[nome].chiave(r), JSON.stringify(r)]));
+    if (impronte) {
+      const diversi = new Set();
+      for (const [chiave, impronta] of nuoveImpronte[nome]) {
+        if (impronte[nome].get(chiave) !== impronta) diversi.add(chiave);
+      }
+      // L'evidenziazione resta fino alla prossima modifica (un refresh senza novita' non la cancella).
+      if (diversi.size > 0) { cambiati[nome] = diversi; nonViste.add(nome); }
+    }
+    // Una scheda con novita' non ancora guardate riceve un puntino.
+    document.getElementById("tab-" + nome).classList.toggle("novita", nonViste.has(nome) && nome !== schedaAttiva);
+  }
+  impronte = nuoveImpronte; datiPannello = nuovi;
+  disegnaScheda();
+}
+
+document.querySelectorAll(".schede button").forEach((b) => b.addEventListener("click", () => {
+  schedaAttiva = b.dataset.scheda; nonViste.delete(schedaAttiva); b.classList.remove("novita"); disegnaScheda();
+}));
+document.getElementById("aggiorna").addEventListener("click", aggiornaDati);
+document.getElementById("apri-dati").addEventListener("click", (ev) => {
+  const pannello = document.getElementById("pannello");
+  const aperto = pannello.classList.toggle("aperto");
+  ev.currentTarget.setAttribute("aria-expanded", String(aperto));
+  if (aperto) pannello.scrollIntoView({ block: "start", behavior: "smooth" });
+});
+
 async function avvia() {
   // Aperta come file (doppio clic) la pagina non puo' parlare con il server: lo si spiega invece di fallire.
   if (location.protocol !== "http:" && location.protocol !== "https:") {
@@ -271,7 +433,8 @@ async function avvia() {
     document.getElementById("connessione").textContent = "non collegato";
     return;
   }
-  const iniziale = vuotoIniziale(); chat.replaceChildren(iniziale);
+  chat.replaceChildren(vuotoIniziale());
+  disegnaScheda(); aggiornaDati();
   try {
     const s = await (await fetch("/api/stato")).json();
     document.getElementById("modello").textContent = s.provider + " · " + s.modello;
