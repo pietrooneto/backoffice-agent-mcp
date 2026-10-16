@@ -1,4 +1,5 @@
 """Livello di accesso ai dati: funzioni che ricevono una connessione SQLite."""
+from .anteprime import AZIONI, anteprima_azione
 from .clienti import storico_cliente, trova_clienti
 from .db import connetti, connetti_sola_lettura, percorso_db
 from .errors import (
@@ -17,6 +18,7 @@ __all__ = [
     "cerca_eventi", "dettaglio_evento", "chiudi_vendite_evento", "annulla_evento",
     "trova_clienti", "storico_cliente",
     "stato_ordine", "rimborsa_ordine", "TERMINE_RIMBORSO_ORE",
+    "anteprima_azione", "AZIONI",
     "ErroreDominio", "NonTrovato", "StatoNonValido", "FuoriTermine", "ParametroNonValido",
     "RichiestaAmbigua",
 ]

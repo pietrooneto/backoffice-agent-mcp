@@ -1,7 +1,7 @@
 """Server MCP della piattaforma di ticketing (trasporto stdio)."""
 from mcp.server.mcpserver import MCPServer
 
-from .tools import TOOLS
+from .tools import TOOLS, TOOLS_SERVIZIO
 
 ISTRUZIONI = (
     "Strumenti di back-office per operatori di una piattaforma di ticketing (dati sintetici). "
@@ -11,7 +11,7 @@ ISTRUZIONI = (
 
 def crea_server() -> MCPServer:
     server = MCPServer("backoffice-ticketing", instructions=ISTRUZIONI)
-    for tool in TOOLS:
+    for tool in [*TOOLS, *TOOLS_SERVIZIO]:
         server.add_tool(
             tool.esegui,
             name=tool.NOME,

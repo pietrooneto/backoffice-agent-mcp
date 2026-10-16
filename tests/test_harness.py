@@ -221,10 +221,12 @@ def test_errore_del_tool_torna_al_modello(db):
 
     async def prova():
         async with sessione(db, copione) as (agente, provider, registro):
-            return await agente.esegui("chiudi le vendite della coppa"), provider, registro
+            return await agente.esegui("chiudi le vendite dell'evento 5"), provider, registro
 
     esito, provider, registro = esegui(prova())
-    assert tipi(registro, "tool")[0]["esito"] == "errore_tool"
+    # L'anteprima del server vieta l'azione prima della conferma: l'operatore non viene disturbato.
+    assert tipi(registro, "tool")[0]["esito"] == "non_ammessa"
+    assert tipi(registro, "conferma") == []
     assert "gia' le vendite chiuse" in provider.chiamate[1][-1].contenuto
     assert esito.motivo == MotivoArresto.RISPOSTA_FINALE
 
@@ -285,7 +287,7 @@ def test_scrittura_approvata_modifica_i_dati(db):
 
     async def prova():
         async with sessione(db, copione, conferma=conferma) as (agente, _, registro):
-            return await agente.esegui("chiudi le vendite del cabaret"), registro
+            return await agente.esegui("chiudi le vendite dell'evento 12"), registro
 
     esito, registro = esegui(prova())
     assert stato_evento(db, 12) == "vendite_chiuse"
@@ -305,7 +307,7 @@ def test_l_attesa_della_conferma_non_conta_come_durata_del_tool(db):
 
     async def prova():
         async with sessione(db, copione, conferma=ConfermaLenta()) as (agente, _, registro):
-            await agente.esegui("chiudi le vendite del cabaret")
+            await agente.esegui("chiudi le vendite dell'evento 12")
             return registro
 
     registro = esegui(prova())
@@ -320,7 +322,7 @@ def test_scrittura_negata_non_modifica_i_dati(db):
 
     async def prova():
         async with sessione(db, copione, conferma=AutoRifiuta()) as (agente, provider, registro):
-            return await agente.esegui("annulla il cabaret"), provider, registro
+            return await agente.esegui("annulla l'evento 12"), provider, registro
 
     esito, provider, registro = esegui(prova())
     assert stato_evento(db, 12) == "in_vendita"
@@ -342,6 +344,152 @@ def test_le_letture_non_chiedono_conferma(db):
 
     esito = esegui(prova())
     assert conferma.richieste == [] and esito.motivo == MotivoArresto.RISPOSTA_FINALE
+
+
+# ------------------------------------------------------- controlli dell'harness
+
+def stato_ordine_db(db, ordine_id):
+    conn = sqlite3.connect(db)
+    try:
+        return conn.execute("SELECT stato FROM ordini WHERE id = ?", (ordine_id,)).fetchone()[0]
+    finally:
+        conn.close()
+
+
+def test_id_inventato_respinto_senza_chiedere_conferma(db):
+    conferma = ConfermaRegistrata(approva=True)
+    copione = [risposta(tool=[("annulla_evento", {"evento_id": 456})]), risposta("Cerco prima l'evento.")]
+
+    async def prova():
+        async with sessione(db, copione, conferma=conferma) as (agente, provider, registro):
+            return await agente.esegui("annulla l'evento Jazz sotto le Stelle"), provider, registro
+
+    esito, provider, registro = esegui(prova())
+    assert conferma.richieste == []  # l'operatore non vede nemmeno una scheda con un numero inventato
+    assert tipi(registro, "tool")[0]["esito"] == "id_non_verificato"
+    assert "non e' comparso" in provider.chiamate[1][-1].contenuto
+    assert tipi(registro, "anteprima") == []  # il controllo degli id viene prima dell'anteprima
+
+
+def test_id_letto_da_un_tool_e_ammesso_e_la_conferma_dice_cosa_succede(db):
+    conferma = ConfermaRegistrata(approva=True)
+    copione = [
+        risposta(tool=[("cerca_eventi", {"titolo": "cabaret"})]),
+        risposta(tool=[("annulla_evento", {"evento_id": 12})]),
+        risposta("Fatto."),
+    ]
+
+    async def prova():
+        async with sessione(db, copione, conferma=conferma) as (agente, _, registro):
+            return await agente.esegui("annulla la serata cabaret"), registro
+
+    esito, registro = esegui(prova())
+    assert stato_evento(db, 12) == "annullato"
+    riepilogo = conferma.richieste[0].riepilogo
+    assert "«Serata Cabaret»" in riepilogo and "26 ordini pagati" in riepilogo and "1.402,00 euro" in riepilogo
+    anteprima = tipi(registro, "anteprima")[0]
+    assert anteprima["ammessa"] is True and anteprima["riepilogo"] == riepilogo
+    assert tipi(registro, "conferma")[0]["riepilogo"] == riepilogo
+
+
+def test_id_scritto_dall_operatore_e_ammesso(db):
+    conferma = ConfermaRegistrata(approva=True)
+    copione = [risposta(tool=[("rimborsa_ordine", {"ordine_id": 596})]), risposta("Rimborsato.")]
+
+    async def prova():
+        async with sessione(db, copione, conferma=conferma) as (agente, _, _):
+            return await agente.esegui("rimborsa l'ordine 596")
+
+    esegui(prova())
+    assert "Davide Greco" in conferma.richieste[0].riepilogo
+    assert stato_ordine_db(db, 596) == "rimborsato"
+
+
+def test_gli_id_letti_si_ricordano_nei_turni_successivi(db):
+    copione = [
+        risposta(tool=[("cerca_eventi", {"titolo": "cabaret"})]), risposta("Vuoi annullare il Cabaret?"),
+        risposta(tool=[("annulla_evento", {"evento_id": 12})]), risposta("Annullato."),
+    ]
+
+    async def prova():
+        async with sessione(db, copione) as (agente, _, registro):
+            await agente.esegui("annulla la serata cabaret")
+            await agente.esegui("si', annulla")  # nessun numero nel messaggio: l'id arriva dal turno precedente
+            return registro
+
+    registro = esegui(prova())
+    assert [t["esito"] for t in tipi(registro, "tool")] == ["ok", "ok"]
+    assert stato_evento(db, 12) == "annullato"
+
+
+def test_azione_vietata_non_disturba_l_operatore(db):
+    conferma = ConfermaRegistrata(approva=True)
+    copione = [risposta(tool=[("rimborsa_ordine", {"ordine_id": 478})]), risposta("Non si puo'.")]
+
+    async def prova():
+        async with sessione(db, copione, conferma=conferma) as (agente, provider, registro):
+            return await agente.esegui("rimborsa l'ordine 478"), provider, registro
+
+    esito, provider, registro = esegui(prova())
+    assert conferma.richieste == []
+    assert tipi(registro, "tool")[0]["esito"] == "non_ammessa"
+    assert "48 ore" in provider.chiamate[1][-1].contenuto
+    assert tipi(registro, "anteprima")[0]["ammessa"] is False
+    assert stato_ordine_db(db, 478) == "pagato"
+
+
+def test_id_inesistente_scritto_dall_operatore_e_vietato_dall_anteprima(db):
+    conferma = ConfermaRegistrata(approva=True)
+    copione = [risposta(tool=[("annulla_evento", {"evento_id": 999})]), risposta("Non esiste.")]
+
+    async def prova():
+        async with sessione(db, copione, conferma=conferma) as (agente, provider, registro):
+            await agente.esegui("annulla l'evento 999")
+            return provider, registro
+
+    provider, registro = esegui(prova())
+    assert conferma.richieste == []
+    assert tipi(registro, "tool")[0]["esito"] == "non_ammessa"
+    assert "Nessun evento con id 999" in provider.chiamate[1][-1].contenuto
+
+
+def test_il_modello_non_vede_ne_puo_chiamare_il_tool_di_servizio(db):
+    copione = [risposta(tool=[("anteprima_azione", {"tool": "annulla_evento", "parametri": {"evento_id": 12}})]), risposta("Ok.")]
+
+    async def prova():
+        async with sessione(db, copione) as (agente, provider, registro):
+            await agente.esegui("prova")
+            return provider, registro
+
+    provider, registro = esegui(prova())
+    assert "anteprima_azione" not in {t.nome for t in provider.strumenti_ricevuti}
+    assert len(provider.strumenti_ricevuti) == 7
+    assert tipi(registro, "tool")[0]["esito"] == "tool_non_disponibile"
+
+
+def test_controlli_disattivabili_per_il_confronto(db):
+    conferma = ConfermaRegistrata(approva=True)
+    copione = [risposta(tool=[("annulla_evento", {"evento_id": 456})]), risposta("Non trovato.")]
+
+    async def prova():
+        async with sessione(db, copione, conferma=conferma, controlli=False) as (agente, _, registro):
+            await agente.esegui("annulla l'evento Jazz")
+            return registro
+
+    registro = esegui(prova())
+    assert len(conferma.richieste) == 1 and conferma.richieste[0].riepilogo is None  # come prima dei controlli
+    assert tipi(registro, "tool")[0]["esito"] == "errore_tool"
+    assert tipi(registro, "anteprima") == []
+
+
+def test_raccogli_id_distingue_eventi_clienti_e_ordini():
+    from harness.agent_loop import raccogli_id
+
+    noti = {}
+    raccogli_id({"eventi": [{"id": 12, "titolo": "Serata", "luogo": "x"}],
+                 "cliente": {"id": 7, "nome": "D", "cognome": "E"},
+                 "ultimi_ordini": [{"ordine_id": 596, "evento_id": 3}], "totale": 99, "id": True}, noti)
+    assert noti == {"evento_id": {12, 3}, "cliente_id": {7}, "ordine_id": {596}}
 
 
 def test_i_tre_tool_di_scrittura_sono_riconosciuti_dal_server(db):

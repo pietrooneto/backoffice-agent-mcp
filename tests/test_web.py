@@ -54,18 +54,19 @@ class ServerWeb:
         conn.request("GET", "/api/eventi")
         r = conn.getresponse()
         visti = []
+        scadenza = time.time() + timeout  # i "ping" del server tengono sveglia la connessione: serve un limite totale
         try:
-            while True:
+            while time.time() < scadenza:
                 riga = r.readline().decode("utf-8")
                 if not riga:
                     break
                 if riga.startswith("data: "):
                     visti.append(json.loads(riga[6:]))
                     if condizione(visti):
-                        break
+                        return visti
         finally:
             conn.close()
-        return visti
+        raise AssertionError(f"la condizione non si e' verificata entro {timeout} s; eventi visti: {[e['tipo'] for e in visti]}")
 
     def chiudi(self):
         self.server.should_exit = True
@@ -147,7 +148,7 @@ def test_il_pannello_e_in_sola_lettura(avvia):
 
 def test_dopo_una_scrittura_il_pannello_mostra_l_effetto(avvia):
     s = avvia([risposta(tool=[("chiudi_vendite_evento", {"evento_id": 12})]), risposta("Vendite chiuse.")])
-    s.richiesta("POST", "/api/messaggio", {"testo": "chiudi le vendite del cabaret"})
+    s.richiesta("POST", "/api/messaggio", {"testo": "chiudi le vendite dell'evento 12"})
     eventi = s.eventi_fino_a(lambda ev: any(e["tipo"] == "richiesta_conferma" for e in ev))
     id_conferma = next(e for e in eventi if e["tipo"] == "richiesta_conferma")["id"]
 
@@ -196,11 +197,12 @@ def test_richieste_non_valide(avvia):
 
 def test_scrittura_approvata_dalla_pagina(avvia):
     s = avvia([risposta(tool=[("chiudi_vendite_evento", {"evento_id": 12})]), risposta("Vendite chiuse.")])
-    s.richiesta("POST", "/api/messaggio", {"testo": "chiudi le vendite del cabaret"})
+    s.richiesta("POST", "/api/messaggio", {"testo": "chiudi le vendite dell'evento 12"})
 
     eventi = s.eventi_fino_a(lambda ev: any(e["tipo"] == "richiesta_conferma" for e in ev))
     richiesta = next(e for e in eventi if e["tipo"] == "richiesta_conferma")
     assert richiesta["tool"] == "chiudi_vendite_evento" and richiesta["argomenti"] == {"evento_id": 12}
+    assert "«Serata Cabaret»" in richiesta["riepilogo"]  # la scheda dice di quale evento si tratta, non solo l'id
     assert stato_evento(s.db, 12) == "in_vendita"  # finche' l'operatore non conferma, nulla cambia
 
     assert s.richiesta("POST", "/api/conferma", {"id": richiesta["id"], "approva": True})[0] == 200
@@ -212,7 +214,7 @@ def test_scrittura_approvata_dalla_pagina(avvia):
 
 def test_scrittura_rifiutata_dalla_pagina(avvia):
     s = avvia([risposta(tool=[("annulla_evento", {"evento_id": 12})]), risposta("Non annullo nulla.")])
-    s.richiesta("POST", "/api/messaggio", {"testo": "annulla il cabaret"})
+    s.richiesta("POST", "/api/messaggio", {"testo": "annulla l'evento 12"})
     eventi = s.eventi_fino_a(lambda ev: any(e["tipo"] == "richiesta_conferma" for e in ev))
     id_conferma = next(e for e in eventi if e["tipo"] == "richiesta_conferma")["id"]
 
@@ -224,7 +226,7 @@ def test_scrittura_rifiutata_dalla_pagina(avvia):
 
 def test_una_sola_richiesta_alla_volta(avvia):
     s = avvia([risposta(tool=[("chiudi_vendite_evento", {"evento_id": 12})]), risposta("Fatto.")])
-    s.richiesta("POST", "/api/messaggio", {"testo": "chiudi le vendite del cabaret"})
+    s.richiesta("POST", "/api/messaggio", {"testo": "chiudi le vendite dell'evento 12"})
     eventi = s.eventi_fino_a(lambda ev: any(e["tipo"] == "richiesta_conferma" for e in ev))
 
     codice, errore = s.richiesta("POST", "/api/messaggio", {"testo": "altra richiesta"})

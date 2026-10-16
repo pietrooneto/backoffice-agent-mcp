@@ -26,6 +26,25 @@ def _leggi_evento(conn: sqlite3.Connection, evento_id: int) -> sqlite3.Row:
     return evento
 
 
+def verifica_chiudibile(evento: sqlite3.Row) -> None:
+    """Regola della chiusura vendite (condivisa da scrittura e anteprima): solo eventi in vendita."""
+    if evento["stato"] != "in_vendita":
+        raise StatoNonValido(
+            f"L'evento {evento['id']} ('{evento['titolo']}') {_DESCRIZIONE_STATO[evento['stato']]}: "
+            "si possono chiudere solo le vendite di eventi in vendita."
+        )
+
+
+def verifica_annullabile(evento: sqlite3.Row, adesso: datetime) -> None:
+    """Regole dell'annullamento (condivise da scrittura e anteprima): non gia' annullato, non gia' svolto."""
+    if evento["stato"] == "annullato":
+        raise StatoNonValido(f"L'evento {evento['id']} ('{evento['titolo']}') e' gia' annullato.")
+    if da_testo(evento["data_evento"]) <= adesso:
+        raise StatoNonValido(
+            f"L'evento {evento['id']} ('{evento['titolo']}') si e' gia' svolto: non si puo' annullare."
+        )
+
+
 def cerca_eventi(
     conn: sqlite3.Connection, titolo: str | None = None, stato: str | None = None
 ) -> list[dict]:
@@ -84,11 +103,7 @@ def chiudi_vendite_evento(conn: sqlite3.Connection, evento_id: int, adesso: date
     """Chiude le vendite di un evento in vendita. Non rimborsa nulla ed e' reversibile."""
     with transazione(conn):
         evento = _leggi_evento(conn, evento_id)
-        if evento["stato"] != "in_vendita":
-            raise StatoNonValido(
-                f"L'evento {evento_id} ('{evento['titolo']}') {_DESCRIZIONE_STATO[evento['stato']]}: "
-                "si possono chiudere solo le vendite di eventi in vendita."
-            )
+        verifica_chiudibile(evento)
         conn.execute("UPDATE eventi SET stato = 'vendite_chiuse' WHERE id = ?", (evento_id,))
         scrivi_audit(conn, "chiudi_vendite_evento", {"evento_id": evento_id}, adesso)
 
@@ -107,14 +122,7 @@ def annulla_evento(conn: sqlite3.Connection, evento_id: int, adesso: datetime) -
     """
     with transazione(conn):
         evento = _leggi_evento(conn, evento_id)
-        if evento["stato"] == "annullato":
-            raise StatoNonValido(
-                f"L'evento {evento_id} ('{evento['titolo']}') e' gia' annullato."
-            )
-        if da_testo(evento["data_evento"]) <= adesso:
-            raise StatoNonValido(
-                f"L'evento {evento_id} ('{evento['titolo']}') si e' gia' svolto: non si puo' annullare."
-            )
+        verifica_annullabile(evento, adesso)
 
         ordini = conn.execute(
             """SELECT o.id, o.totale_centesimi, o.quantita

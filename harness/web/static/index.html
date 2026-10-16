@@ -217,7 +217,8 @@ function impostaOccupato(valore) {
 
 const CLASSE_ESITO = {
   ok: "", errore_tool: "errore", timeout: "errore", errore_trasporto: "errore",
-  parametri_non_validi: "attenzione", tool_non_disponibile: "attenzione", rifiutato: "attenzione"
+  parametri_non_validi: "attenzione", tool_non_disponibile: "attenzione", rifiutato: "attenzione",
+  id_non_verificato: "attenzione", non_ammessa: "attenzione"
 };
 
 function gestisci(e) {
@@ -264,7 +265,8 @@ function gestisci(e) {
       scheda.append(el("h2", null, "Serve la tua conferma"), el("div", "sotto", "L'agente vuole modificare i dati."), el("div", "tool", e.tool));
       const dl = el("dl");
       for (const [k, v] of Object.entries(e.argomenti)) dl.append(el("dt", null, k), el("dd", null, String(v)));
-      dl.append(el("dt", null, "cosa fa"), el("dd", null, e.descrizione));
+      // Con l'anteprima del server la scheda dice che cosa succede davvero (nomi, numeri, importi), non solo l'id.
+      dl.append(el("dt", null, e.riepilogo ? "cosa succede" : "cosa fa"), el("dd", null, e.riepilogo || e.descrizione));
       scheda.append(dl);
       const azioni = el("div", "azioni");
       const si = el("button", "primario", "Conferma"), no = el("button", null, "Rifiuta");

@@ -101,7 +101,7 @@ class ConfermaWeb:
         self._in_attesa[id_conferma] = futuro
         self.bus.pubblica({
             "tipo": "richiesta_conferma", "id": id_conferma, "tool": richiesta.tool,
-            "descrizione": richiesta.descrizione, "argomenti": richiesta.argomenti,
+            "descrizione": richiesta.descrizione, "argomenti": richiesta.argomenti, "riepilogo": richiesta.riepilogo,
         })
         motivo = None
         try:
@@ -135,6 +135,7 @@ class Sessione:
             tentativi_extra_risposta_vuota=config.tentativi_extra_risposta_vuota,
             timeout_tool=config.timeout_tool,
             prompt_sistema=prompt_per(config.variante_prompt),
+            controlli=config.controlli,
         )
         self.compito: asyncio.Task | None = None
 
