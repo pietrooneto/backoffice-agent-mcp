@@ -369,6 +369,15 @@ def test_pulisci_schema_toglie_titoli_e_anyof_nulli():
     }
 
 
+def test_le_varianti_del_prompt():
+    from harness.prompt import PROMPT, PROMPT_SISTEMA, prompt_per
+
+    assert prompt_per("base") == PROMPT_SISTEMA  # la versione di partenza resta il termine di confronto
+    assert set(PROMPT) == {"base", "v2"} and prompt_per("v2") != prompt_per("base")
+    with pytest.raises(ValueError, match="sconosciuta"):
+        prompt_per("inesistente")
+
+
 def test_crea_provider_dalla_configurazione():
     assert isinstance(crea_provider(Configurazione(provider="ollama")), OllamaProvider)
     assert isinstance(crea_provider(Configurazione(provider="openai_compat")), OpenAICompatProvider)
