@@ -263,6 +263,14 @@ testo.addEventListener("input", ridimensiona);
 nuova.addEventListener("click", async () => { try { await post("/api/nuova"); } catch (err) { alert(err.message); } });
 
 async function avvia() {
+  // Aperta come file (doppio clic) la pagina non puo' parlare con il server: lo si spiega invece di fallire.
+  if (location.protocol !== "http:" && location.protocol !== "https:") {
+    chat.replaceChildren(el("div", "balloon agente errore",
+      "Questa pagina va aperta dal server, non come file. Avvia «python -m harness.web» e visita http://127.0.0.1:8000"));
+    invia.disabled = nuova.disabled = true;
+    document.getElementById("connessione").textContent = "non collegato";
+    return;
+  }
   const iniziale = vuotoIniziale(); chat.replaceChildren(iniziale);
   try {
     const s = await (await fetch("/api/stato")).json();
