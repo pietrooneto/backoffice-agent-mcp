@@ -1,0 +1,63 @@
+@startuml classi_server
+!include stile.iuml
+!pragma layout smetana
+hide empty members
+top to bottom direction
+
+class "ClientMcp\n(harness)" as Client
+
+class "MCPServer\n<<SDK mcp>>" as MCPServer {
+  +add_tool(...)
+  +run()
+}
+
+class "Tool MCP\n<<modulo>>" as ToolMcp {
+  +NOME: str
+  +DESCRIZIONE: str
+  +ANNOTAZIONI: readOnlyHint, destructiveHint
+  +esegui(parametri): risultato
+}
+
+class Contesto {
+  +conn: Connection
+  +adesso(): datetime
+  +guasto_simulato(tool): bool
+}
+
+class "Repository\n<<moduli di backend/>>" as Repository {
+  +cerca_eventi()
+  +dettaglio_evento()
+  +storico_cliente()
+  +stato_ordine()
+  +chiudi_vendite_evento()
+  +annulla_evento()
+  +rimborsa_ordine()
+  +anteprima_azione()
+}
+
+abstract class ErroreDominio
+class "SQLite\n<<base dati>>" as DB
+
+Client ..> MCPServer : MCP su stdio
+MCPServer o-- ToolMcp : 8 tool
+ToolMcp ..> Contesto
+ToolMcp ..> Repository
+Repository ..> DB
+Repository ..> ErroreDominio : solleva
+
+note right of ToolMcp
+  Sette tool per il modello.
+  Lettura: cerca_eventi, dettaglio_evento,
+  storico_acquisti_cliente, stato_ordine.
+  Scrittura: chiudi_vendite_evento,
+  annulla_evento, rimborsa_ordine.
+  Ottavo, di servizio per l'harness e
+  nascosto al modello: anteprima_azione.
+end note
+
+note right of ErroreDominio
+  Sottoclassi: NonTrovato, StatoNonValido,
+  FuoriTermine, ParametroNonValido,
+  RichiestaAmbigua
+end note
+@enduml

@@ -1,0 +1,73 @@
+@startuml classi_harness
+!include stile.iuml
+!pragma layout smetana
+hide empty members
+left to right direction
+
+class Agente {
+  +max_iterazioni: int
+  +controlli: bool
+  +storia: list[Messaggio]
+  +esegui(richiesta): EsitoTurno
+  +reset()
+}
+
+abstract class LLMProvider {
+  +nome: str
+  +modello: str
+  {abstract} +chat(messaggi, strumenti): RispostaModello
+}
+class OllamaProvider
+class OpenAICompatProvider
+
+interface Conferma {
+  +chiedi(richiesta): bool
+}
+class ConfermaWeb
+class ConfermaDaTerminale
+
+class ClientMcp {
+  +strumenti: list[InfoTool]
+  +chiama(nome, argomenti): RisultatoTool
+}
+
+class Registro {
+  +scrivi(tipo, **campi)
+}
+
+class EsitoTurno {
+  +motivo: MotivoArresto
+  +risposta: str
+  +iterazioni: int
+  +token_ingresso: int
+  +token_uscita: int
+  +durata_ms: int
+}
+
+enum MotivoArresto {
+  RISPOSTA_FINALE
+  CONFERMA_NEGATA
+  LIMITE_ITERAZIONI
+  ERRORE_MODELLO
+  ERRORE_MCP
+}
+
+class "Server MCP\n(vedi figura successiva)" as Esterno
+
+Agente o--> LLMProvider
+Agente o--> Conferma
+Agente o--> ClientMcp
+Agente o--> Registro
+Agente ..> EsitoTurno : restituisce
+EsitoTurno --> MotivoArresto
+LLMProvider <|-- OllamaProvider
+LLMProvider <|-- OpenAICompatProvider
+Conferma <|.. ConfermaWeb
+Conferma <|.. ConfermaDaTerminale
+ClientMcp ..> Esterno : MCP su stdio
+
+note right of LLMProvider
+  Cambiare modello richiede solo
+  la configurazione (LLM_PROVIDER).
+end note
+@enduml

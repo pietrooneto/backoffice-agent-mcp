@@ -1,0 +1,53 @@
+@startuml sequenza
+!include stile.iuml
+autonumber "<b>0"
+skinparam sequenceMessageAlign left
+skinparam maxMessageSize 230
+
+actor Operatore
+participant "Interfaccia\nweb" as Web
+participant Agente
+participant "LLMProvider\n(Ollama)" as LLM
+participant "Server MCP\n+ repository" as Server
+database "SQLite" as DB
+
+Operatore -> Web : «Chiudi le vendite dell'evento 12»
+Web -> Agente : esegui(richiesta)
+note right of Agente : Il Registro scrive una riga JSONL\nper ogni passo (modello, tool,\nparametri, risultati, token)
+
+group Iterazione 1: il modello chiede un tool di scrittura
+  Agente -> LLM : chat(messaggi, strumenti)
+  LLM --> Agente : chiede chiudi_vendite_evento\n(evento_id = 12)
+  Agente -> Agente : controlli: tool esistente, parametri validi\n(schema), id 12 scritto dall'operatore
+  Agente -> Server : anteprima_azione\n(chiudi_vendite_evento, 12)
+  Server --> Agente : ammessa + riepilogo\n(«Chiudere le vendite dell'evento\n«Serata Cabaret»... 59 venduti su 140»)
+  Agente -> Web : richiesta di conferma\n(tool, parametri, riepilogo)
+  Web -> Operatore : scheda «Serve la tua conferma»
+  alt l'operatore conferma
+    Operatore -> Web : Conferma
+    Web --> Agente : approvata
+    Agente -> Server : chiama("chiudi_vendite_evento", 12)
+    Server -> DB : transazione:\nUPDATE eventi, INSERT audit_log
+    Server --> Agente : risultato: vendite chiuse
+  else l'operatore rifiuta
+    Operatore -> Web : Rifiuta
+    Web --> Agente : negata
+    Agente -> Agente : risultato «rifiutato» al modello,\nnessuna modifica ai dati
+  end
+end
+
+group Iterazione 2: risposta finale
+  Agente -> LLM : chat(messaggi + risultato del tool)
+  LLM --> Agente : testo: «Ho chiuso le vendite\nper l'evento "Serata Cabaret"»
+  note right of Agente : nessun tool richiesto:\narresto «risposta finale»
+end
+
+Agente --> Web : EsitoTurno (motivo, risposta,\niterazioni, token, durata)
+Web --> Operatore : risposta e passi dell'agente
+
+note over Operatore, DB
+  Se l'operatore indica il titolo invece dell'id, il modello prima chiama cerca_eventi
+  (lettura: nessuna conferma) e l'harness annota l'id letto. Il ciclo si ripete fino alla
+  risposta finale o al numero massimo di iterazioni.
+end note
+@enduml

@@ -1,0 +1,91 @@
+@startuml schema_er
+!include ../uml/stile.iuml
+!pragma layout smetana
+hide circle
+skinparam linetype ortho
+
+entity clienti {
+  * id : INTEGER <<PK>>
+  --
+  nome : TEXT
+  cognome : TEXT
+  email : TEXT <<unico>>
+  creato_il : TEXT
+}
+
+entity eventi {
+  * id : INTEGER <<PK>>
+  --
+  titolo : TEXT
+  luogo : TEXT
+  data_evento : TEXT
+  stato : TEXT
+  creato_il : TEXT
+}
+
+entity settori {
+  * id : INTEGER <<PK>>
+  --
+  # evento_id : INTEGER <<FK>>
+  nome : TEXT
+  capienza : INTEGER
+  prezzo_centesimi : INTEGER
+}
+
+entity ordini {
+  * id : INTEGER <<PK>>
+  --
+  # cliente_id : INTEGER <<FK>>
+  # settore_id : INTEGER <<FK>>
+  quantita : INTEGER
+  totale_centesimi : INTEGER
+  stato : TEXT
+  creato_il : TEXT
+}
+
+entity biglietti {
+  * id : INTEGER <<PK>>
+  --
+  # ordine_id : INTEGER <<FK>>
+  codice : TEXT <<unico>>
+  stato : TEXT
+}
+
+entity rimborsi {
+  * id : INTEGER <<PK>>
+  --
+  # ordine_id : INTEGER <<FK>>
+  importo_centesimi : INTEGER
+  motivo : TEXT
+  creato_il : TEXT
+}
+
+entity audit_log {
+  * id : INTEGER <<PK>>
+  --
+  quando : TEXT
+  ruolo : TEXT
+  tool : TEXT
+  parametri_json : TEXT
+  esito : TEXT
+}
+
+clienti ||--o{ ordini : effettua
+eventi ||--|{ settori : ha
+settori ||--o{ ordini : riguarda
+ordini ||--|{ biglietti : contiene
+ordini ||--o{ rimborsi : "puo' avere"
+
+note bottom of eventi
+  stato: bozza, in_vendita,
+  vendite_chiuse, annullato
+end note
+note bottom of ordini
+  stato: pagato, rimborsato, annullato
+  importi in centesimi
+end note
+note right of audit_log
+  Registro delle scritture eseguite dai tool:
+  nessuna chiave esterna.
+end note
+@enduml

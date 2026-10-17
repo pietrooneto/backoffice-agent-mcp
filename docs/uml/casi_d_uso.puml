@@ -1,0 +1,52 @@
+﻿@startuml casi_d_uso
+!include stile.iuml
+!pragma layout smetana
+top to bottom direction
+
+actor "Operatore\ndell'assistenza" as Operatore
+actor "Modello linguistico\n(locale, Ollama)" as Modello
+
+rectangle "Assistente di back-office" {
+  usecase "Chiedere informazioni\nin linguaggio naturale" as Info
+  usecase "Chiedere una modifica\ndei dati" as Modifica
+  usecase "Verificare l'azione\n(id e regole)" as Verifica
+  usecase "Confermare o rifiutare\nla modifica" as Conferma
+  usecase "Consultare il pannello dati" as Pannello
+  usecase "Avviare una nuova chat" as Nuova
+
+  usecase "Cercare eventi" as UCcerca
+  usecase "Vedere il dettaglio\ndi un evento" as UCdettaglio
+  usecase "Consultare lo storico\ndi un cliente" as UCstorico
+  usecase "Vedere lo stato\ndi un ordine" as UCordine
+  usecase "Chiudere le vendite\ndi un evento" as UCchiudi
+  usecase "Annullare un evento\ncon rimborsi" as UCannulla
+  usecase "Rimborsare un ordine" as UCrimborsa
+}
+
+Operatore --> Info
+Operatore --> Modifica
+Operatore --> Conferma
+Operatore --> Pannello
+Operatore --> Nuova
+
+Modello --> Info
+Modello --> Modifica
+
+Info <|-- UCcerca
+Info <|-- UCdettaglio
+Info <|-- UCstorico
+Info <|-- UCordine
+Modifica <|-- UCchiudi
+Modifica <|-- UCannulla
+Modifica <|-- UCrimborsa
+
+Modifica ..> Verifica : <<include>>
+Modifica ..> Conferma : <<include>>
+UCcerca -[hidden]down- UCdettaglio
+UCdettaglio -[hidden]down- UCstorico
+UCstorico -[hidden]down- UCordine
+UCchiudi -[hidden]down- UCannulla
+UCannulla -[hidden]down- UCrimborsa
+@enduml
+
+

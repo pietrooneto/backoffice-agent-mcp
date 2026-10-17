@@ -1,0 +1,27 @@
+' Stile comune dei diagrammi: sfondo bianco, colori chiari, leggibile anche in bianco e nero.
+skinparam dpi 200
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam backgroundColor #FFFFFF
+skinparam roundCorner 6
+skinparam ArrowColor #333333
+skinparam ArrowFontSize 11
+skinparam NoteBackgroundColor #FFF8DC
+skinparam NoteBorderColor #999999
+skinparam PackageBorderColor #888888
+skinparam PackageBackgroundColor #FAFAFA
+skinparam RectangleBorderColor #888888
+skinparam ClassBorderColor #333333
+skinparam ClassBackgroundColor #FFFFFF
+skinparam ClassHeaderBackgroundColor #E8EEF4
+skinparam ActorBorderColor #333333
+skinparam ActorBackgroundColor #FFFFFF
+skinparam UsecaseBorderColor #333333
+skinparam UsecaseBackgroundColor #FFFFFF
+skinparam ParticipantBorderColor #333333
+skinparam ParticipantBackgroundColor #E8EEF4
+skinparam SequenceLifeLineBorderColor #999999
+skinparam SequenceGroupBackgroundColor #F5F5F5
+skinparam EntityBorderColor #333333
+skinparam EntityBackgroundColor #FFFFFF
