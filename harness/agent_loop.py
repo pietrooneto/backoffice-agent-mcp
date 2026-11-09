@@ -106,6 +106,7 @@ def pulisci_schema(schema):
 # Un numero senza una di queste parole davanti ("12 biglietti", "il 12 dicembre") non e' un id.
 _RIFERIMENTO = re.compile(r"\b(evento|ordine|cliente)\s+(?:(?:n\.?|n°|numero|id)\s*)?#?(\d+)\b", re.IGNORECASE)
 _PARAMETRO_PER_ENTITA = {"evento": "evento_id", "ordine": "ordine_id", "cliente": "cliente_id"}
+ID_QUALSIASI_TIPO = "*"  # chiave degli id scritti con «id N» in un messaggio che non nomina nessuna entita'
 
 
 # Forme meno rigide: "id: 1", "l'id dell'evento e' 12" (parola "id" seguita da un numero) e il solo numero come
@@ -132,6 +133,11 @@ def id_espliciti(testo: str, domanda: str = "") -> dict[str, set[int]]:
     sola entita' tra evento, ordine e cliente. Quantita' e date («12 biglietti», «il 12 dicembre») non sono id, e
     con piu' entita' nello stesso messaggio il numero e' ambiguo e non si accetta.
 
+    Se il messaggio non nomina nessuna entita' (e nemmeno la domanda a cui risponde), un numero dopo la parola
+    «id» («il suo id e' 12») vale per qualunque tipo di id, con la chiave ID_QUALSIASI_TIPO: il tipo lo
+    stabilisce il tool che il modello chiama, e la scheda di conferma mostra comunque il nome dell'evento o del
+    cliente. Un numero senza la parola «id» («12 biglietti») non e' mai un id in questo caso.
+
     Controllo volutamente semplice: dice da dove viene il numero, non che l'entita' sia quella che
     l'operatore intendeva. La conferma resta necessaria.
     """
@@ -142,6 +148,9 @@ def id_espliciti(testo: str, domanda: str = "") -> dict[str, set[int]]:
     citate = _entita_citate(testo)
     if not citate:  # nessuna entita' nel messaggio: si guarda la domanda a cui l'operatore sta rispondendo
         citate = _entita_citate(domanda)
+        if not citate:  # nessuna entita' nemmeno li': «il suo id e' 12» vale per qualunque tipo di id
+            for numero in _ID_GENERICO.findall(testo):
+                trovati.setdefault(ID_QUALSIASI_TIPO, set()).add(int(numero))
     if len(citate) == 1:
         parametro = _PARAMETRO_PER_ENTITA[next(iter(citate))]
         for numero in [*_ID_GENERICO.findall(testo), *_SOLO_NUMERO.findall(testo)]:
@@ -431,7 +440,8 @@ class Agente:
         for nome, valore in argomenti.items():
             if not nome.endswith("_id") or not isinstance(valore, int) or isinstance(valore, bool):
                 continue
-            if valore in self._id_operatore.get(nome, set()) or valore in self._id_letti.get(nome, set()):
+            scritto = self._id_operatore.get(nome, set()) | self._id_operatore.get(ID_QUALSIASI_TIPO, set())
+            if valore in scritto or valore in self._id_letti.get(nome, set()):
                 continue
             suggerimento = {
                 "evento_id": "chiama cerca_eventi con il titolo dell'evento e usa l'id che trovi",

@@ -553,11 +553,15 @@ def test_id_espliciti_forme_flessibili_con_una_sola_entita():
     # Il solo numero vale se risponde a una domanda su una sola entita'.
     assert id_espliciti("12", "Puoi dirmi l'id dell'evento?") == {"evento_id": {12}}
     assert id_espliciti("l'id è 596", "Di quale ordine parli?") == {"ordine_id": {596}}
-    # Ambiguita': nessuna domanda, piu' entita', quantita' e date non si accettano.
+    # Senza nessuna entita' nel messaggio (ne' nella domanda), «id N» vale per qualunque tipo di id.
+    assert id_espliciti("apri le vendite di serata cabaret il suo id è 12") == {"*": {12}}
+    assert id_espliciti("l'id è 12") == {"*": {12}}
+    # Ambiguita': il solo numero senza «id», piu' entita', quantita' e date non si accettano.
     assert id_espliciti("12") == {}
-    assert id_espliciti("l'id è 12") == {}
     assert id_espliciti("cliente Rossi, evento Cabaret, id 5") == {}
     assert id_espliciti("12", "Quale evento o quale ordine?") == {}
+    assert id_espliciti("Ho comprato 12 biglietti") == {}
+    assert id_espliciti("l'id è 12", "Quale evento o quale ordine?") == {}  # la domanda ha due entita': ambiguo
     assert id_espliciti("Ho comprato 12 biglietti per l'evento Jazz") == {}
     assert id_espliciti("l'evento del 12 dicembre") == {}
 
@@ -596,6 +600,34 @@ def test_conversazione_reale_id_scritto_con_la_parola_id_viene_accettato(db):
     assert [t["esito"] for t in tipi(registro, "tool")] == ["id_non_verificato", "ok"]
     assert len(conferma.richieste) == 1 and "Notte Elettrica Festival" in conferma.richieste[0].riepilogo
     assert stato_evento(db, 1) == "vendite_chiuse"
+
+
+def test_id_senza_entita_nel_messaggio_vale_per_il_tool_che_il_modello_chiama(db):
+    conferma = ConfermaRegistrata(approva=False)  # basta vedere la scheda: si rifiuta
+    copione = [risposta(tool=[("apri_vendite_evento", {"evento_id": 5})]), risposta("Non riapro nulla.")]
+
+    async def prova():
+        async with sessione(db, copione, conferma=conferma) as (agente, _, registro):
+            await agente.esegui("apri le vendite di coppa dei borghi il suo id è 5")
+            return registro
+
+    registro = esegui(prova())
+    assert len(conferma.richieste) == 1 and "Coppa dei Borghi" in conferma.richieste[0].riepilogo
+    assert tipi(registro, "tool")[0]["esito"] == "rifiutato"
+
+
+def test_un_numero_senza_la_parola_id_resta_respinto_senza_entita(db):
+    conferma = ConfermaRegistrata(approva=True)
+    copione = [risposta(tool=[("apri_vendite_evento", {"evento_id": 5})]), risposta("Cerco l'evento.")]
+
+    async def prova():
+        async with sessione(db, copione, conferma=conferma) as (agente, _, registro):
+            await agente.esegui("riapri le vendite di quella da 5")
+            return registro
+
+    registro = esegui(prova())
+    assert conferma.richieste == [] and tipi(registro, "tool")[0]["esito"] == "id_non_verificato"
+    assert stato_evento(db, 5) == "vendite_chiuse"
 
 
 def test_il_solo_numero_risponde_alla_domanda_dell_assistente(db):
