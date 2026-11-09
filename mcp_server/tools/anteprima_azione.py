@@ -29,7 +29,10 @@ class EsitoAnteprima(BaseModel):
 
 @tool_sicuro(NOME)
 def esegui(
-    tool: Annotated[Literal["chiudi_vendite_evento", "annulla_evento", "rimborsa_ordine"], Field(description="Tool di scrittura da simulare")],
+    tool: Annotated[
+        Literal["apri_vendite_evento", "chiudi_vendite_evento", "annulla_evento", "rimborsa_ordine"],
+        Field(description="Tool di scrittura da simulare"),
+    ],
     parametri: Annotated[dict[str, Any], Field(description="Parametri che il modello vorrebbe usare")],
 ) -> EsitoAnteprima:
     try:

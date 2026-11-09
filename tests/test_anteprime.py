@@ -8,6 +8,7 @@ from backend.repository import (
     StatoNonValido,
     anteprima_azione,
     annulla_evento,
+    apri_vendite_evento,
     chiudi_vendite_evento,
     rimborsa_ordine,
 )
@@ -39,6 +40,12 @@ def test_anteprima_chiusura_descrive_l_evento(conn, adesso):
     assert "Venduti 59 biglietti su 140" in testo
 
 
+def test_anteprima_apertura_descrive_l_evento(conn, adesso):
+    testo = anteprima_azione(conn, "apri_vendite_evento", {"evento_id": 5}, adesso)
+    assert "Riaprire le vendite" in testo and "«Coppa dei Borghi - Finale»" in testo and "Bologna" in testo
+    assert "torna in vendita" in testo and "non viene rimborsato nulla" in testo
+
+
 def test_anteprima_annullamento_riporta_ordini_e_importo(conn, adesso):
     testo = anteprima_azione(conn, "annulla_evento", {"evento_id": 12}, adesso)
     assert "«Serata Cabaret»" in testo
@@ -51,6 +58,22 @@ def test_anteprima_rimborso_nomina_cliente_ed_evento(conn, adesso):
 
 
 # ------------------------------------------------- le regole sono quelle delle scritture
+
+@pytest.mark.parametrize("evento_id, errore", [(12, StatoNonValido), (6, StatoNonValido), (8, StatoNonValido), (999, NonTrovato)])
+def test_anteprima_apertura_rifiuta_come_la_scrittura(conn, adesso, evento_id, errore):
+    with pytest.raises(errore):
+        anteprima_azione(conn, "apri_vendite_evento", {"evento_id": evento_id}, adesso)
+    with pytest.raises(errore):
+        apri_vendite_evento(conn, evento_id, adesso)
+
+
+def test_anteprima_apertura_evento_gia_svolto_come_la_scrittura(conn, adesso):
+    conn.execute("UPDATE eventi SET data_evento = '2026-10-01 20:00:00' WHERE id = 5")
+    with pytest.raises(StatoNonValido, match="gia' svolto"):
+        anteprima_azione(conn, "apri_vendite_evento", {"evento_id": 5}, adesso)
+    with pytest.raises(StatoNonValido, match="gia' svolto"):
+        apri_vendite_evento(conn, 5, adesso)
+
 
 @pytest.mark.parametrize("evento_id, errore", [(5, StatoNonValido), (6, StatoNonValido), (8, StatoNonValido), (999, NonTrovato)])
 def test_anteprima_chiusura_rifiuta_come_la_scrittura(conn, adesso, evento_id, errore):

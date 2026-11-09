@@ -111,7 +111,7 @@ def test_pagina_e_stato(avvia):
     assert codice == 200 and "<title>Assistente di back-office</title>" in html
     codice, stato = s.richiesta("GET", "/api/stato")
     assert codice == 200 and stato["modello"] == "finto" and stato["occupato"] is False
-    assert len(stato["tool"]) == 7 and sum(t["scrittura"] for t in stato["tool"]) == 3
+    assert len(stato["tool"]) == 8 and sum(t["scrittura"] for t in stato["tool"]) == 4
 
 
 def test_la_pagina_non_inserisce_testo_come_html():
@@ -169,9 +169,10 @@ def test_richiesta_di_lettura_arriva_alla_pagina(avvia):
     assert s.richiesta("POST", "/api/messaggio", {"testo": "dove e' il cabaret?"})[0] == 202
 
     eventi = s.eventi_fino_a(ha_arresto)
-    assert [e["tipo"] for e in eventi] == ["richiesta_utente", "chiamata_modello", "tool", "chiamata_modello", "arresto"]
-    assert eventi[2]["tool"] == "cerca_eventi" and eventi[2]["esito"] == "ok"
-    assert "nuovi_messaggi" not in eventi[1]  # i messaggi completi restano solo nel file di log
+    assert [e["tipo"] for e in eventi] == [
+        "configurazione", "richiesta_utente", "chiamata_modello", "tool", "chiamata_modello", "arresto"]
+    assert eventi[3]["tool"] == "cerca_eventi" and eventi[3]["esito"] == "ok"
+    assert "nuovi_messaggi" not in eventi[2]  # i messaggi completi restano solo nel file di log
     assert eventi[-1]["risposta"] == "Si tiene a Cagliari." and eventi[-1]["motivo"] == "risposta_finale"
 
 
@@ -181,7 +182,8 @@ def test_chi_si_collega_dopo_riceve_la_cronologia(avvia):
     s.eventi_fino_a(ha_arresto)
     # Una seconda pagina (o un ricaricamento) rivede tutto dall'inizio.
     di_nuovo = s.eventi_fino_a(ha_arresto)
-    assert di_nuovo[0]["tipo"] == "richiesta_utente" and di_nuovo[-1]["risposta"] == "Ciao."
+    assert [e["tipo"] for e in di_nuovo][:2] == ["configurazione", "richiesta_utente"]
+    assert di_nuovo[-1]["risposta"] == "Ciao."
 
 
 def test_richieste_non_valide(avvia):
@@ -251,6 +253,18 @@ def test_nuova_chat_azzera_la_cronologia(avvia):
     assert [e["testo"] for e in eventi if e["tipo"] == "richiesta_utente"] == ["due"]
     # La conversazione dell'agente e' ripartita da zero: il modello non ha visto "uno".
     assert all(m.contenuto != "uno" for m in s.provider.chiamate[-1])
+
+
+def test_alla_pagina_arrivano_risultati_brevi_ma_il_log_resta_integro():
+    from harness.web.app import LIMITE_RISULTATO_PAGINA, _per_la_pagina
+
+    lungo = "x" * (LIMITE_RISULTATO_PAGINA + 500)
+    evento = {"tipo": "tool", "risultato": lungo, "nuovi_messaggi": ["m"]}
+    mostrato = _per_la_pagina(evento)
+    assert evento["risultato"] == lungo  # l'evento originale (quello scritto nel log) non viene toccato
+    assert "nuovi_messaggi" not in mostrato and len(mostrato["risultato"]) < len(lungo)
+    assert mostrato["risultato"].startswith("x" * LIMITE_RISULTATO_PAGINA) and "log" in mostrato["risultato"]
+    assert _per_la_pagina({"tipo": "tool", "risultato": "ok"})["risultato"] == "ok"
 
 
 def test_la_conferma_scaduta_e_considerata_negata():

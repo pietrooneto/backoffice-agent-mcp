@@ -14,7 +14,7 @@ from mcp_server.tools import TOOLS
 
 ROOT = Path(__file__).resolve().parents[1]
 LETTURE = {"cerca_eventi", "dettaglio_evento", "storico_acquisti_cliente", "stato_ordine"}
-SCRITTURE = {"chiudi_vendite_evento", "annulla_evento", "rimborsa_ordine"}
+SCRITTURE = {"apri_vendite_evento", "chiudi_vendite_evento", "annulla_evento", "rimborsa_ordine"}
 SERVIZIO = {"anteprima_azione"}  # usato solo dall'harness, nascosto al modello
 
 
@@ -38,7 +38,7 @@ def dati(risultato):
 
 # ---------- catalogo dei tool ----------
 
-def test_sette_tool_per_il_modello_piu_uno_di_servizio(server):
+def test_otto_tool_per_il_modello_piu_uno_di_servizio(server):
     nomi = {t.name for t in asyncio.run(server.list_tools())}
     assert nomi == LETTURE | SCRITTURE | SERVIZIO
 
@@ -52,6 +52,7 @@ def test_metadati_di_scrittura_per_la_conferma_umana(server):
         assert tools[nome].annotations.read_only_hint is False
     assert tools["annulla_evento"].annotations.destructive_hint is True
     assert tools["chiudi_vendite_evento"].annotations.destructive_hint is False
+    assert tools["apri_vendite_evento"].annotations.destructive_hint is False
 
 
 def test_ogni_tool_ha_descrizione_e_schemi(server):
@@ -66,7 +67,7 @@ def test_ogni_tool_ha_descrizione_e_schemi(server):
 def test_moduli_e_registro_coerenti():
     assert [m.NOME for m in TOOLS] == [
         "cerca_eventi", "dettaglio_evento", "storico_acquisti_cliente", "stato_ordine",
-        "chiudi_vendite_evento", "annulla_evento", "rimborsa_ordine",
+        "apri_vendite_evento", "chiudi_vendite_evento", "annulla_evento", "rimborsa_ordine",
     ]
 
 
@@ -148,6 +149,32 @@ def test_chiudi_vendite_modifica_i_dati(server, conn):
 def test_chiudi_vendite_evento_gia_chiuso_e_errore_leggibile(server):
     with pytest.raises(ToolError, match="gia' le vendite chiuse"):
         chiama(server, "chiudi_vendite_evento", evento_id=5)
+
+
+def test_apri_vendite_modifica_i_dati(server, conn):
+    risultato = dati(chiama(server, "apri_vendite_evento", evento_id=5))
+    assert (risultato["stato_precedente"], risultato["stato_nuovo"]) == ("vendite_chiuse", "in_vendita")
+    assert conn.execute("SELECT stato FROM eventi WHERE id = 5").fetchone()["stato"] == "in_vendita"
+    assert conn.execute("SELECT tool FROM audit_log").fetchone()["tool"] == "apri_vendite_evento"
+
+
+def test_apri_vendite_evento_in_vendita_e_errore_leggibile(server, conn):
+    with pytest.raises(ToolError, match="solo le vendite di eventi a vendite chiuse"):
+        chiama(server, "apri_vendite_evento", evento_id=12)
+    assert conn.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0] == 0
+
+
+def test_apri_vendite_parametro_non_valido(server):
+    with pytest.raises(ToolError):
+        chiama(server, "apri_vendite_evento", evento_id=0)
+
+
+def test_anteprima_apertura_via_tool_di_servizio(server, conn):
+    esito = dati(chiama(server, "anteprima_azione", tool="apri_vendite_evento", parametri={"evento_id": 5}))
+    assert esito["ammessa"] is True and "Riaprire le vendite" in esito["riepilogo"]
+    vietata = dati(chiama(server, "anteprima_azione", tool="apri_vendite_evento", parametri={"evento_id": 12}))
+    assert vietata["ammessa"] is False and "vendite chiuse" in vietata["motivo"]
+    assert conn.execute("SELECT stato FROM eventi WHERE id = 5").fetchone()["stato"] == "vendite_chiuse"
 
 
 def test_annulla_evento_gia_annullato(server):

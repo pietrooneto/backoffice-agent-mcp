@@ -2,16 +2,18 @@
 
 Serve all'harness prima di chiedere la conferma all'operatore: se una regola vieta l'azione l'operatore non
 viene disturbato, e se e' ammessa la conferma mostra che cosa succedera' davvero (nomi, numeri, importi) e
-non soltanto un id. Le regole sono le stesse funzioni usate dalle scritture, quindi non possono divergere.
+non soltanto un id. Le regole sono le stesse funzioni usate dalle scritture, ma l'anteprima e' una fotografia:
+tra l'anteprima e l'esecuzione (che aspetta la conferma dell'operatore) dati e orario possono cambiare, quindi
+la scrittura ricontrolla le condizioni dentro la propria transazione.
 """
 import sqlite3
 from datetime import datetime
 
 from .errors import ParametroNonValido
-from .eventi import _leggi_evento, dettaglio_evento, verifica_annullabile, verifica_chiudibile
+from .eventi import _leggi_evento, dettaglio_evento, verifica_annullabile, verifica_apribile, verifica_chiudibile
 from .ordini import stato_ordine, verifica_rimborsabile
 
-AZIONI = ("chiudi_vendite_evento", "annulla_evento", "rimborsa_ordine")
+AZIONI = ("apri_vendite_evento", "chiudi_vendite_evento", "annulla_evento", "rimborsa_ordine")
 
 
 def _euro(centesimi: int) -> str:
@@ -34,6 +36,16 @@ def _intero(parametri: dict, nome: str) -> int:
 
 def anteprima_azione(conn: sqlite3.Connection, tool: str, parametri: dict, adesso: datetime) -> str:
     """Restituisce una descrizione dell'effetto dell'azione, oppure solleva l'errore di dominio che la vieta."""
+    if tool == "apri_vendite_evento":
+        evento = _leggi_evento(conn, _intero(parametri, "evento_id"))
+        verifica_apribile(evento, adesso)
+        dettaglio = dettaglio_evento(conn, evento["id"])
+        return (
+            f"Riaprire le vendite dell'evento «{evento['titolo']}» ({evento['luogo']}, {_data(evento['data_evento'])}). "
+            f"Venduti {dettaglio['venduti_totali']} biglietti su {dettaglio['capienza_totale']}; "
+            "l'evento torna in vendita e non viene rimborsato nulla."
+        )
+
     if tool == "chiudi_vendite_evento":
         evento = _leggi_evento(conn, _intero(parametri, "evento_id"))
         verifica_chiudibile(evento)

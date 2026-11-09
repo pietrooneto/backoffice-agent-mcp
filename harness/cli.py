@@ -44,7 +44,7 @@ async def principale() -> None:
                         tentativi_extra_risposta_vuota=config.tentativi_extra_risposta_vuota,
                         timeout_tool=config.timeout_tool,
                         prompt_sistema=prompt_per(config.variante_prompt),
-                        controlli=config.controlli)
+                        controlli=config.controlli, info_config=config.per_log())
         while True:
             try:
                 richiesta = await asyncio.to_thread(input, "\nOperatore> ")

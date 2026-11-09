@@ -11,6 +11,7 @@ Tutto cio' che va storto (tool inesistente, parametri non validi, errore del too
 negata, timeout) torna al modello come risultato: l'harness non si ferma per questo.
 """
 import asyncio
+import hashlib
 import json
 import re
 import time
@@ -66,6 +67,11 @@ class _Turno:
     numero: int
     iterazione: int = 0
     stato: EsitoTurno = field(default_factory=lambda: EsitoTurno(MotivoArresto.RISPOSTA_FINALE, ""))
+    rifiutate: set[str] = field(default_factory=set)  # azioni rifiutate dall'operatore in questa richiesta
+
+
+def _chiave_azione(nome: str, argomenti: dict) -> str:
+    return nome + json.dumps(argomenti, sort_keys=True, ensure_ascii=False)
 
 
 def pulisci_schema(schema):
@@ -94,6 +100,53 @@ def pulisci_schema(schema):
             del pulito["anyOf"]
             pulito = {**non_nulle[0], **pulito}
     return pulito
+
+
+# Riferimenti espliciti a un'entita' nel testo dell'operatore: "evento 12", "ordine n. 596", "cliente id 7".
+# Un numero senza una di queste parole davanti ("12 biglietti", "il 12 dicembre") non e' un id.
+_RIFERIMENTO = re.compile(r"\b(evento|ordine|cliente)\s+(?:(?:n\.?|n°|numero|id)\s*)?#?(\d+)\b", re.IGNORECASE)
+_PARAMETRO_PER_ENTITA = {"evento": "evento_id", "ordine": "ordine_id", "cliente": "cliente_id"}
+
+
+# Forme meno rigide: "id: 1", "l'id dell'evento e' 12" (parola "id" seguita da un numero) e il solo numero come
+# risposta a una domanda ("12"). Valgono solo se dal testo, o dalla domanda a cui si risponde, si capisce di quale
+# tipo di entita' si parla: una sola tra evento, ordine, cliente.
+_ID_GENERICO = re.compile(r"\bid\b[^\d\n]{0,25}?#?(\d+)\b", re.IGNORECASE)
+_SOLO_NUMERO = re.compile(r"^\s*(?:id\s*)?#?(\d+)\s*[.!]?\s*$", re.IGNORECASE)
+_PAROLE_ENTITA = {
+    "evento": re.compile(r"\bevent[oi]\b", re.IGNORECASE),
+    "ordine": re.compile(r"\bordin[ei]\b", re.IGNORECASE),
+    "cliente": re.compile(r"\bclient[ei]\b", re.IGNORECASE),
+}
+
+
+def _entita_citate(testo: str) -> set[str]:
+    return {entita for entita, parola in _PAROLE_ENTITA.items() if parola.search(testo)}
+
+
+def id_espliciti(testo: str, domanda: str = "") -> dict[str, set[int]]:
+    """Id scritti dall'operatore, per nome di parametro (evento_id, ordine_id, cliente_id).
+
+    Si accetta un numero se e' scritto accanto alla parola dell'entita' («evento 12», «ordine n. 596»), oppure
+    dopo la parola «id» («id: 1») o da solo, purche' nel messaggio, o nella domanda a cui risponde, compaia una
+    sola entita' tra evento, ordine e cliente. Quantita' e date («12 biglietti», «il 12 dicembre») non sono id, e
+    con piu' entita' nello stesso messaggio il numero e' ambiguo e non si accetta.
+
+    Controllo volutamente semplice: dice da dove viene il numero, non che l'entita' sia quella che
+    l'operatore intendeva. La conferma resta necessaria.
+    """
+    trovati: dict[str, set[int]] = {}
+    for entita, numero in _RIFERIMENTO.findall(testo):
+        trovati.setdefault(_PARAMETRO_PER_ENTITA[entita.lower()], set()).add(int(numero))
+
+    citate = _entita_citate(testo)
+    if not citate:  # nessuna entita' nel messaggio: si guarda la domanda a cui l'operatore sta rispondendo
+        citate = _entita_citate(domanda)
+    if len(citate) == 1:
+        parametro = _PARAMETRO_PER_ENTITA[next(iter(citate))]
+        for numero in [*_ID_GENERICO.findall(testo), *_SOLO_NUMERO.findall(testo)]:
+            trovati.setdefault(parametro, set()).add(int(numero))
+    return trovati
 
 
 def raccogli_id(valore, noti: dict[str, set[int]]) -> None:
@@ -130,6 +183,7 @@ class Agente:
         timeout_tool: float = 60,
         prompt_sistema: str = PROMPT_SISTEMA,
         controlli: bool = True,
+        info_config: dict | None = None,
     ) -> None:
         self.provider = provider
         self.mcp = mcp
@@ -141,8 +195,12 @@ class Agente:
         self.prompt_sistema = prompt_sistema
         self.controlli = controlli  # anteprima delle scritture e controllo degli id
 
-        # Id che il modello puo' usare nelle scritture: scritti dall'operatore o letti nei risultati dei tool.
-        self._id_operatore: set[int] = set()
+        self.info_config = dict(info_config or {})  # variante del prompt, modello ecc., per il log (mai chiavi API)
+        self._config_registrata = False
+
+        # Id che il modello puo' usare nelle scritture, per tipo di entita' (evento_id, ordine_id, cliente_id):
+        # scritti dall'operatore con l'entita' esplicita, oppure letti nei risultati dei tool.
+        self._id_operatore: dict[str, set[int]] = {}
         self._id_letti: dict[str, set[int]] = {}
 
         self._info: dict[str, InfoTool] = {t.nome: t for t in mcp.strumenti}
@@ -157,6 +215,21 @@ class Agente:
         self._gia_registrati = 0
         self._id_operatore.clear()
         self._id_letti.clear()
+        self._config_registrata = False  # la nuova chat ha un nuovo log, che deve ripartire dalla configurazione
+
+    def _registra_configurazione(self) -> None:
+        """Una riga all'inizio di ogni log con cio' che serve a interpretare le prove (nessun segreto)."""
+        self.registro.scrivi(
+            "configurazione",
+            **self.info_config,
+            provider=self.provider.nome, modello=self.provider.modello,
+            max_iterazioni=self.max_iterazioni, tentativi_extra_risposta_vuota=self.tentativi_extra,
+            timeout_tool_s=self.timeout_tool, controlli=self.controlli,
+            limite_risultato_al_modello=LIMITE_RISULTATO, tool_disponibili=len(self.strumenti),
+            prompt_caratteri=len(self.prompt_sistema),
+            prompt_sha256=hashlib.sha256(self.prompt_sistema.encode("utf-8")).hexdigest()[:12],
+        )
+        self._config_registrata = True
 
     # ------------------------------------------------------------------ ciclo
 
@@ -165,12 +238,16 @@ class Agente:
         self._turni += 1
         turno = _Turno(self._turni)
         inizio = time.monotonic()
+        if not self._config_registrata:
+            self._registra_configurazione()
         self.registro.scrivi(
             "richiesta_utente", turno=turno.numero, testo=richiesta,
             modello=self.provider.modello, provider=self.provider.nome, max_iterazioni=self.max_iterazioni,
         )
         self.storia.append(Messaggio("user", richiesta))
-        self._id_operatore.update(int(n) for n in re.findall(r"\d+", richiesta))
+        ultima_domanda = next((m.contenuto for m in reversed(self.storia[:-1]) if m.ruolo == "assistant" and m.contenuto), "")
+        for parametro, numeri in id_espliciti(richiesta, ultima_domanda).items():
+            self._id_operatore.setdefault(parametro, set()).update(numeri)
 
         for iterazione in range(1, self.max_iterazioni + 1):
             turno.iterazione = iterazione
@@ -263,16 +340,18 @@ class Agente:
             except json.JSONDecodeError:
                 pass
 
-        testo = esito.testo
-        if len(testo) > LIMITE_RISULTATO:
-            testo = testo[:LIMITE_RISULTATO] + " …[risultato troncato]"
+        # Il log conserva il risultato integrale; al modello va una versione abbreviata se supera il limite.
+        completo = esito.testo
+        troncato = len(completo) > LIMITE_RISULTATO
+        per_il_modello = completo[:LIMITE_RISULTATO] + " …[risultato troncato]" if troncato else completo
         self.registro.scrivi(
             "tool", turno=turno.numero, iterazione=turno.iterazione, id_chiamata=chiamata.id,
             tool=chiamata.nome, parametri=chiamata.argomenti, scrittura=scrittura,
-            esito=esito.esito, risultato=testo, attesa_conferma_ms=esito.attesa_conferma_ms,
+            esito=esito.esito, risultato=completo, troncato_per_il_modello=troncato,
+            caratteri_risultato=len(completo), attesa_conferma_ms=esito.attesa_conferma_ms,
             durata_ms=max(0, int((time.monotonic() - inizio) * 1000) - esito.attesa_conferma_ms),
         )
-        return _EsitoTool(testo, esito.esito, esito.fatale, esito.attesa_conferma_ms)
+        return _EsitoTool(per_il_modello, esito.esito, esito.fatale, esito.attesa_conferma_ms)
 
     async def _decidi_ed_esegui(self, chiamata: ChiamataTool, info: InfoTool | None, turno: _Turno) -> _EsitoTool:
         # 1. Argomenti illeggibili.
@@ -289,6 +368,15 @@ class Agente:
         if problemi:
             dettaglio = "; ".join(f"{'.'.join(map(str, e.path)) or 'parametri'}: {e.message}" for e in problemi[:5])
             return _EsitoTool(f"Errore: parametri non validi per '{info.nome}': {dettaglio}.", "parametri_non_validi")
+
+        # 3b. Un'azione che l'operatore ha gia' rifiutato in questa richiesta non si ripropone: lo decide
+        # il codice, non la buona volonta' del modello. Una nuova richiesta dell'operatore (altro turno) puo' ripeterla.
+        if info.scrittura and _chiave_azione(info.nome, chiamata.argomenti) in turno.rifiutate:
+            return _EsitoTool(
+                "L'operatore ha gia' RIFIUTATO questa stessa azione in questa richiesta: non e' stata eseguita e non "
+                "viene riproposta. Comunica all'operatore che l'azione non e' stata eseguita.",
+                "rifiuto_ripetuto",
+            )
 
         # 4. Controlli sulle scritture, prima di disturbare l'operatore: id mai visti e anteprima delle regole.
         riepilogo = None
@@ -314,6 +402,7 @@ class Agente:
                                  decisione="approvata" if approvata else "negata", attesa_ms=attesa_ms)
             if not approvata:
                 turno.stato.conferme_negate += 1
+                turno.rifiutate.add(_chiave_azione(info.nome, chiamata.argomenti))
                 return _EsitoTool(
                     "L'operatore ha RIFIUTATO questa azione: nessun dato e' stato modificato. "
                     "Non riprovare: comunica all'operatore che l'azione non e' stata eseguita.",
@@ -342,11 +431,16 @@ class Agente:
         for nome, valore in argomenti.items():
             if not nome.endswith("_id") or not isinstance(valore, int) or isinstance(valore, bool):
                 continue
-            if valore in self._id_operatore or valore in self._id_letti.get(nome, set()):
+            if valore in self._id_operatore.get(nome, set()) or valore in self._id_letti.get(nome, set()):
                 continue
+            suggerimento = {
+                "evento_id": "chiama cerca_eventi con il titolo dell'evento e usa l'id che trovi",
+                "cliente_id": "chiama storico_acquisti_cliente con nome e cognome e usa l'id che trovi",
+                "ordine_id": "chiedi all'operatore il numero dell'ordine",
+            }.get(nome, "cercalo con i tool di lettura")
             return (
-                f"Errore: l'id {nome} {valore} non e' comparso ne' nella richiesta dell'operatore ne' nei risultati "
-                "dei tool. Non inventare id: cercalo con i tool di lettura e usa quello trovato."
+                f"Errore: l'id {nome} {valore} non e' comparso ne' nella richiesta dell'operatore come riferimento "
+                f"chiaro a quell'entita' ne' nei risultati dei tool. Non inventare id: {suggerimento}."
             )
         return None
 

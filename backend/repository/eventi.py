@@ -35,6 +35,19 @@ def verifica_chiudibile(evento: sqlite3.Row) -> None:
         )
 
 
+def verifica_apribile(evento: sqlite3.Row, adesso: datetime) -> None:
+    """Regola della riapertura vendite (condivisa da scrittura e anteprima): solo eventi a vendite chiuse e non svolti."""
+    if evento["stato"] != "vendite_chiuse":
+        raise StatoNonValido(
+            f"L'evento {evento['id']} ('{evento['titolo']}') {_DESCRIZIONE_STATO[evento['stato']]}: "
+            "si possono riaprire solo le vendite di eventi a vendite chiuse."
+        )
+    if da_testo(evento["data_evento"]) <= adesso:
+        raise StatoNonValido(
+            f"L'evento {evento['id']} ('{evento['titolo']}') si e' gia' svolto: non si possono riaprire le vendite."
+        )
+
+
 def verifica_annullabile(evento: sqlite3.Row, adesso: datetime) -> None:
     """Regole dell'annullamento (condivise da scrittura e anteprima): non gia' annullato, non gia' svolto."""
     if evento["stato"] == "annullato":
@@ -112,6 +125,22 @@ def chiudi_vendite_evento(conn: sqlite3.Connection, evento_id: int, adesso: date
         "titolo": evento["titolo"],
         "stato_precedente": "in_vendita",
         "stato_nuovo": "vendite_chiuse",
+    }
+
+
+def apri_vendite_evento(conn: sqlite3.Connection, evento_id: int, adesso: datetime) -> dict:
+    """Riapre le vendite di un evento a vendite chiuse (l'opposto di chiudi_vendite_evento). Non rimborsa nulla."""
+    with transazione(conn):
+        evento = _leggi_evento(conn, evento_id)
+        verifica_apribile(evento, adesso)
+        conn.execute("UPDATE eventi SET stato = 'in_vendita' WHERE id = ?", (evento_id,))
+        scrivi_audit(conn, "apri_vendite_evento", {"evento_id": evento_id}, adesso)
+
+    return {
+        "evento_id": evento_id,
+        "titolo": evento["titolo"],
+        "stato_precedente": "vendite_chiuse",
+        "stato_nuovo": "in_vendita",
     }
 
 

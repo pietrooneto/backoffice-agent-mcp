@@ -121,6 +121,18 @@ class ConfermaWeb:
         return True
 
 
+LIMITE_RISULTATO_PAGINA = 2000  # caratteri di un risultato tool mostrati nella pagina
+
+
+def _per_la_pagina(evento: dict) -> dict:
+    """Versione di un evento del log adatta alla pagina: senza i messaggi inviati al modello e con i risultati brevi."""
+    mostrato = {k: v for k, v in evento.items() if k != "nuovi_messaggi"}
+    risultato = mostrato.get("risultato")
+    if mostrato.get("tipo") == "tool" and isinstance(risultato, str) and len(risultato) > LIMITE_RISULTATO_PAGINA:
+        mostrato["risultato"] = risultato[:LIMITE_RISULTATO_PAGINA] + " …[abbreviato: il risultato intero e' nel log]"
+    return mostrato
+
+
 class Sessione:
     """Un agente, la sua conversazione e il suo log, condivisi dalle pagine collegate."""
 
@@ -136,13 +148,15 @@ class Sessione:
             timeout_tool=config.timeout_tool,
             prompt_sistema=prompt_per(config.variante_prompt),
             controlli=config.controlli,
+            info_config=config.per_log(),
         )
         self.compito: asyncio.Task | None = None
 
     def _nuovo_registro(self) -> Registro:
         registro = Registro(self.config.log_dir)
-        # Alla pagina non servono i messaggi completi inviati al modello: sono solo nel file di log.
-        registro.aggiungi_ascoltatore(lambda e: self.bus.pubblica({k: v for k, v in e.items() if k != "nuovi_messaggi"}))
+        # Alla pagina non servono i messaggi completi inviati al modello ne' i risultati interi dei tool:
+        # restano solo nel file di log.
+        registro.aggiungi_ascoltatore(lambda e: self.bus.pubblica(_per_la_pagina(e)))
         return registro
 
     @property

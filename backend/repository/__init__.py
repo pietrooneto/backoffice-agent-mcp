@@ -10,12 +10,12 @@ from .errors import (
     RichiestaAmbigua,
     StatoNonValido,
 )
-from .eventi import annulla_evento, cerca_eventi, chiudi_vendite_evento, dettaglio_evento
+from .eventi import annulla_evento, apri_vendite_evento, cerca_eventi, chiudi_vendite_evento, dettaglio_evento
 from .ordini import TERMINE_RIMBORSO_ORE, rimborsa_ordine, stato_ordine
 
 __all__ = [
     "connetti", "connetti_sola_lettura", "percorso_db",
-    "cerca_eventi", "dettaglio_evento", "chiudi_vendite_evento", "annulla_evento",
+    "cerca_eventi", "dettaglio_evento", "apri_vendite_evento", "chiudi_vendite_evento", "annulla_evento",
     "trova_clienti", "storico_cliente",
     "stato_ordine", "rimborsa_ordine", "TERMINE_RIMBORSO_ORE",
     "anteprima_azione", "AZIONI",

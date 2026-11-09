@@ -101,13 +101,13 @@ def test_lettura_e_risposta_finale(db, tmp_path):
     # Log JSONL: ogni riga e' JSON valido con i campi comuni.
     righe = [json.loads(r) for r in registro.percorso.read_text(encoding="utf-8").splitlines()]
     assert [r["tipo"] for r in righe] == [
-        "richiesta_utente", "chiamata_modello", "tool", "chiamata_modello", "arresto"]
+        "configurazione", "richiesta_utente", "chiamata_modello", "tool", "chiamata_modello", "arresto"]
     assert all({"timestamp", "sessione_id"} <= set(r) for r in righe)
-    tool = righe[2]
+    tool = righe[3]
     assert tool["tool"] == "cerca_eventi" and tool["parametri"] == {"titolo": "cabaret"}
     assert tool["esito"] == "ok" and tool["scrittura"] is False and "Serata Cabaret" in tool["risultato"]
-    assert righe[1]["token_ingresso"] == 300 and righe[4]["token_uscita"] == 45
-    assert righe[4]["motivo"] == "risposta_finale"
+    assert righe[2]["token_ingresso"] == 300 and righe[5]["token_uscita"] == 45
+    assert righe[5]["motivo"] == "risposta_finale"
 
 
 def test_limite_di_iterazioni(db):
@@ -317,6 +317,36 @@ def test_l_attesa_della_conferma_non_conta_come_durata_del_tool(db):
     assert tipi(registro, "conferma")[0]["attesa_ms"] >= 600
 
 
+def test_riapertura_vendite_chiede_conferma_con_riepilogo_e_modifica_i_dati(db):
+    conferma = ConfermaRegistrata(approva=True)
+    copione = [risposta(tool=[("apri_vendite_evento", {"evento_id": 5})]), risposta("Vendite riaperte.")]
+
+    async def prova():
+        async with sessione(db, copione, conferma=conferma) as (agente, _, registro):
+            return await agente.esegui("riapri le vendite dell'evento 5"), registro
+
+    esito, registro = esegui(prova())
+    assert stato_evento(db, 5) == "in_vendita"
+    assert len(conferma.richieste) == 1 and conferma.richieste[0].tool == "apri_vendite_evento"
+    assert "Riaprire le vendite" in conferma.richieste[0].riepilogo
+    assert tipi(registro, "tool")[0]["scrittura"] is True and esito.motivo == MotivoArresto.RISPOSTA_FINALE
+
+
+def test_riapertura_di_un_evento_in_vendita_non_disturba_l_operatore(db):
+    conferma = ConfermaRegistrata(approva=True)
+    copione = [risposta(tool=[("apri_vendite_evento", {"evento_id": 12})]), risposta("E' gia' in vendita.")]
+
+    async def prova():
+        async with sessione(db, copione, conferma=conferma) as (agente, provider, registro):
+            await agente.esegui("riapri le vendite dell'evento 12")
+            return provider, registro
+
+    provider, registro = esegui(prova())
+    assert conferma.richieste == []
+    assert tipi(registro, "tool")[0]["esito"] == "non_ammessa"
+    assert "vendite chiuse" in provider.chiamate[1][-1].contenuto
+
+
 def test_scrittura_negata_non_modifica_i_dati(db):
     copione = [risposta(tool=[("annulla_evento", {"evento_id": 12})]), risposta("Va bene, non annullo nulla.")]
 
@@ -463,7 +493,7 @@ def test_il_modello_non_vede_ne_puo_chiamare_il_tool_di_servizio(db):
 
     provider, registro = esegui(prova())
     assert "anteprima_azione" not in {t.nome for t in provider.strumenti_ricevuti}
-    assert len(provider.strumenti_ricevuti) == 7
+    assert len(provider.strumenti_ricevuti) == 8
     assert tipi(registro, "tool")[0]["esito"] == "tool_non_disponibile"
 
 
@@ -497,7 +527,222 @@ def test_i_tre_tool_di_scrittura_sono_riconosciuti_dal_server(db):
         async with ClientMcp({"DB_PATH": str(db)}) as mcp:
             return {t.nome for t in mcp.strumenti if t.scrittura}
 
-    assert esegui(prova()) == {"chiudi_vendite_evento", "annulla_evento", "rimborsa_ordine"}
+    assert esegui(prova()) == {"apri_vendite_evento", "chiudi_vendite_evento", "annulla_evento", "rimborsa_ordine"}
+
+
+# ------------------------------------------- provenienza degli id, rifiuto, log completo
+
+def test_id_espliciti_riconosce_solo_l_entita_scritta_accanto_al_numero():
+    from harness.agent_loop import id_espliciti
+
+    assert id_espliciti("Rimborsa l'ordine 478") == {"ordine_id": {478}}
+    assert id_espliciti("annulla l'evento n. 12 e l'ordine #5") == {"evento_id": {12}, "ordine_id": {5}}
+    assert id_espliciti("Mostra il cliente id 7") == {"cliente_id": {7}}
+    assert id_espliciti("Ho comprato 12 biglietti: annulla Jazz sotto le Stelle") == {}  # quantita'
+    assert id_espliciti("l'evento del 12 dicembre alle 21") == {}  # data
+    assert id_espliciti("annulla il numero 12") == {}  # entita' non indicata: ambiguo
+
+
+def test_id_espliciti_forme_flessibili_con_una_sola_entita():
+    from harness.agent_loop import id_espliciti
+
+    # Le frasi vere che prima venivano respinte.
+    assert id_espliciti("voglio che chiudi le vendite dell'evento \"Notte Elettrica Festival\" id: 1 a milano") == {"evento_id": {1}}
+    assert id_espliciti("l'id dell'evento è 1") == {"evento_id": {1}}
+    assert id_espliciti("l'evento si chiama precisamente 'Serata Cabaret' l'id è 12") == {"evento_id": {12}}
+    # Il solo numero vale se risponde a una domanda su una sola entita'.
+    assert id_espliciti("12", "Puoi dirmi l'id dell'evento?") == {"evento_id": {12}}
+    assert id_espliciti("l'id è 596", "Di quale ordine parli?") == {"ordine_id": {596}}
+    # Ambiguita': nessuna domanda, piu' entita', quantita' e date non si accettano.
+    assert id_espliciti("12") == {}
+    assert id_espliciti("l'id è 12") == {}
+    assert id_espliciti("cliente Rossi, evento Cabaret, id 5") == {}
+    assert id_espliciti("12", "Quale evento o quale ordine?") == {}
+    assert id_espliciti("Ho comprato 12 biglietti per l'evento Jazz") == {}
+    assert id_espliciti("l'evento del 12 dicembre") == {}
+
+
+def test_una_quantita_non_e_un_id_evento(db):
+    conferma = ConfermaRegistrata(approva=True)
+    copione = [risposta(tool=[("annulla_evento", {"evento_id": 12})]), risposta("Cerco prima l'evento.")]
+
+    async def prova():
+        async with sessione(db, copione, conferma=conferma) as (agente, _, registro):
+            await agente.esegui("Ho comprato 12 biglietti: annulla Jazz sotto le Stelle")
+            return registro
+
+    registro = esegui(prova())
+    assert conferma.richieste == []
+    assert tipi(registro, "tool")[0]["esito"] == "id_non_verificato"
+    assert stato_evento(db, 12) == "in_vendita"
+
+
+def test_conversazione_reale_id_scritto_con_la_parola_id_viene_accettato(db):
+    conferma = ConfermaRegistrata(approva=True)
+    copione = [
+        risposta(tool=[("chiudi_vendite_evento", {"evento_id": 456})]),  # id inventato: respinto
+        risposta("Quale dei due eventi?"),
+        risposta(tool=[("chiudi_vendite_evento", {"evento_id": 1})]),
+        risposta("Fatto."),
+    ]
+
+    async def prova():
+        async with sessione(db, copione, conferma=conferma) as (agente, _, registro):
+            await agente.esegui("Chiudi l'evento Notte Elettrica Festival")
+            await agente.esegui("voglio che chiudi le vendite dell'evento \"Notte Elettrica Festival\" id: 1 a milano")
+            return registro
+
+    registro = esegui(prova())
+    assert [t["esito"] for t in tipi(registro, "tool")] == ["id_non_verificato", "ok"]
+    assert len(conferma.richieste) == 1 and "Notte Elettrica Festival" in conferma.richieste[0].riepilogo
+    assert stato_evento(db, 1) == "vendite_chiuse"
+
+
+def test_il_solo_numero_risponde_alla_domanda_dell_assistente(db):
+    conferma = ConfermaRegistrata(approva=False)  # basta vedere la scheda: si rifiuta
+    copione = [
+        risposta("Puoi dirmi l'id dell'evento da chiudere?"),
+        risposta(tool=[("chiudi_vendite_evento", {"evento_id": 12})]),
+        risposta("Va bene, non chiudo nulla."),
+    ]
+
+    async def prova():
+        async with sessione(db, copione, conferma=conferma) as (agente, _, registro):
+            await agente.esegui("chiudi le vendite")
+            await agente.esegui("12")
+            return registro
+
+    registro = esegui(prova())
+    assert len(conferma.richieste) == 1  # il numero e' stato accettato e l'operatore ha visto la scheda
+    assert tipi(registro, "tool")[0]["esito"] == "rifiutato"
+    assert stato_evento(db, 12) == "in_vendita"
+
+
+def test_un_numero_d_ordine_non_vale_come_id_evento(db):
+    conferma = ConfermaRegistrata(approva=True)
+    copione = [risposta(tool=[("annulla_evento", {"evento_id": 12})]), risposta("Serve l'id dell'evento.")]
+
+    async def prova():
+        async with sessione(db, copione, conferma=conferma) as (agente, _, registro):
+            await agente.esegui("controlla l'ordine 12")
+            return registro
+
+    registro = esegui(prova())
+    assert conferma.richieste == []
+    assert tipi(registro, "tool")[0]["esito"] == "id_non_verificato"
+
+
+def test_riferimenti_espliciti_validi_restano_ammessi(db):
+    conferma = ConfermaRegistrata(approva=True)
+    copione = [
+        risposta(tool=[("chiudi_vendite_evento", {"evento_id": 12}), ("rimborsa_ordine", {"ordine_id": 596})]),
+        risposta("Fatto."),
+    ]
+
+    async def prova():
+        async with sessione(db, copione, conferma=conferma) as (agente, _, _):
+            await agente.esegui("chiudi le vendite dell'evento 12 e rimborsa l'ordine n. 596")
+
+    esegui(prova())
+    assert [r.tool for r in conferma.richieste] == ["chiudi_vendite_evento", "rimborsa_ordine"]
+    assert stato_evento(db, 12) == "vendite_chiuse" and stato_ordine_db(db, 596) == "rimborsato"
+
+
+class ConfermaInSequenza:
+    """Risponde con le decisioni date, in ordine, e ricorda cosa le e' stato chiesto."""
+
+    def __init__(self, *decisioni: bool) -> None:
+        self.decisioni = list(decisioni)
+        self.richieste: list[RichiestaConferma] = []
+
+    async def chiedi(self, richiesta):
+        self.richieste.append(richiesta)
+        return self.decisioni.pop(0)
+
+
+def test_azione_rifiutata_non_viene_riproposta_nello_stesso_turno(db):
+    conferma = ConfermaInSequenza(False, True)
+    azione = ("annulla_evento", {"evento_id": 12})
+    copione = [
+        risposta(tool=[azione]),
+        risposta(tool=[azione]),  # il modello insiste con gli stessi parametri
+        risposta("L'azione non e' stata eseguita."),
+    ]
+
+    async def prova():
+        async with sessione(db, copione, conferma=conferma) as (agente, provider, registro):
+            esito = await agente.esegui("annulla l'evento 12")
+            return esito, provider, registro
+
+    esito, provider, registro = esegui(prova())
+    assert len(conferma.richieste) == 1  # una sola scheda: la seconda richiesta non arriva all'operatore
+    assert [t["esito"] for t in tipi(registro, "tool")] == ["rifiutato", "rifiuto_ripetuto"]
+    assert len(tipi(registro, "conferma")) == 1 and len(tipi(registro, "anteprima")) == 1
+    assert "gia' RIFIUTATO" in provider.chiamate[2][-1].contenuto
+    assert stato_evento(db, 12) == "in_vendita"
+    assert esito.motivo == MotivoArresto.CONFERMA_NEGATA and esito.conferme_negate == 1
+    assert tipi(registro, "arresto")[0]["motivo"] == "conferma_negata"
+
+
+def test_una_nuova_richiesta_puo_ripetere_l_azione_rifiutata(db):
+    conferma = ConfermaInSequenza(False, True)
+    azione = ("annulla_evento", {"evento_id": 12})
+    copione = [risposta(tool=[azione]), risposta("Non eseguito."), risposta(tool=[azione]), risposta("Annullato.")]
+
+    async def prova():
+        async with sessione(db, copione, conferma=conferma) as (agente, _, registro):
+            primo = await agente.esegui("annulla l'evento 12")
+            secondo = await agente.esegui("si', annulla l'evento 12, e' proprio quello")
+            return primo, secondo, registro
+
+    primo, secondo, registro = esegui(prova())
+    assert primo.motivo == MotivoArresto.CONFERMA_NEGATA and secondo.motivo == MotivoArresto.RISPOSTA_FINALE
+    assert len(conferma.richieste) == 2
+    assert [t["esito"] for t in tipi(registro, "tool")] == ["rifiutato", "ok"]
+    assert stato_evento(db, 12) == "annullato"
+
+
+def test_il_log_conserva_il_risultato_intero_e_il_modello_ne_riceve_la_versione_abbreviata(db, monkeypatch):
+    monkeypatch.setattr("harness.agent_loop.LIMITE_RISULTATO", 100)
+    copione = [
+        risposta(tool=[("dettaglio_evento", {"evento_id": 9}), ("cerca_eventi", {"titolo": "cabaret", "stato": "bozza"})]),
+        risposta("Ecco."),
+    ]
+
+    async def prova():
+        async with sessione(db, copione) as (agente, provider, registro):
+            await agente.esegui("quanti posti restano all'evento 9?")
+            return provider, registro
+
+    provider, registro = esegui(prova())
+    lungo, breve = tipi(registro, "tool")
+    assert lungo["troncato_per_il_modello"] is True and lungo["caratteri_risultato"] == len(lungo["risultato"]) > 100
+    assert json.loads(lungo["risultato"])["id"] == 9  # nel log il JSON e' integro
+    assert breve["troncato_per_il_modello"] is False
+    al_modello = [m for m in provider.chiamate[1] if m.ruolo == "tool"][0].contenuto
+    assert al_modello.endswith("[risultato troncato]") and len(al_modello) < len(lungo["risultato"])
+    assert al_modello.startswith(lungo["risultato"][:100])
+
+
+def test_la_configurazione_si_registra_una_volta_per_sessione_senza_segreti(db):
+    copione = [risposta("Uno."), risposta("Due."), risposta("Tre.")]
+
+    async def prova():
+        async with sessione(db, copione, info_config={"variante_prompt": "v2", "num_ctx": 8192}) as (agente, _, registro):
+            await agente.esegui("prima")
+            await agente.esegui("seconda")
+            agente.reset()  # nuova chat: nuovo log, quindi di nuovo la configurazione
+            await agente.esegui("terza")
+            return registro
+
+    registro = esegui(prova())
+    configurazioni = tipi(registro, "configurazione")
+    assert len(configurazioni) == 2
+    c = configurazioni[0]
+    assert c["variante_prompt"] == "v2" and c["controlli"] is True and c["modello"] == "finto"
+    assert c["max_iterazioni"] == 10 and c["limite_risultato_al_modello"] == 6000 and len(c["prompt_sha256"]) == 12
+    assert not any("key" in chiave or "chiave" in chiave for chiave in c)
+    assert [e["tipo"] for e in registro.eventi][0] == "configurazione"
 
 
 # --------------------------------------------------------------- schema e config

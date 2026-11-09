@@ -2,6 +2,7 @@
 from . import (
     annulla_evento,
     anteprima_azione,
+    apri_vendite_evento,
     cerca_eventi,
     chiudi_vendite_evento,
     dettaglio_evento,
@@ -16,6 +17,7 @@ TOOLS = [
     dettaglio_evento,
     storico_acquisti_cliente,
     stato_ordine,
+    apri_vendite_evento,
     chiudi_vendite_evento,
     annulla_evento,
     rimborsa_ordine,

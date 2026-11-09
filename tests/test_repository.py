@@ -1,7 +1,7 @@
 """Test del livello di accesso ai dati sul database sintetico del seed.
 
 Gli id degli eventi sono quelli del seed: 1 e 2 omonimi, 5 vendite chiuse, 6 bozza,
-7 inizia entro 48 ore, 8 e 11 annullati, 9 quasi esaurito, 12 in vendita.
+7 inizia entro 48 ore, 8 e 11 annullati, 9 quasi esaurito, 12 in vendita. Le vendite si riaprono solo sul 5.
 """
 import json
 from datetime import timedelta
@@ -14,6 +14,7 @@ from backend.repository import (
     ParametroNonValido,
     StatoNonValido,
     annulla_evento,
+    apri_vendite_evento,
     cerca_eventi,
     chiudi_vendite_evento,
     dettaglio_evento,
@@ -127,6 +128,60 @@ def test_chiudi_vendite_due_volte(conn, adesso):
 def test_chiudi_vendite_evento_inesistente(conn, adesso):
     with pytest.raises(NonTrovato):
         chiudi_vendite_evento(conn, 999, adesso)
+
+
+# ---------- apri vendite ----------
+
+def test_apri_vendite_ok(conn, adesso):
+    esito = apri_vendite_evento(conn, 5, adesso)
+    assert (esito["stato_precedente"], esito["stato_nuovo"]) == ("vendite_chiuse", "in_vendita")
+    assert dettaglio_evento(conn, 5)["stato"] == "in_vendita"
+    audit = righe_audit(conn)
+    assert len(audit) == 1 and audit[0]["tool"] == "apri_vendite_evento"
+    assert json.loads(audit[0]["parametri_json"]) == {"evento_id": 5}
+
+
+def test_apri_vendite_non_tocca_gli_ordini(conn, adesso):
+    prima = ordini_pagati(conn, 5)
+    apri_vendite_evento(conn, 5, adesso)
+    assert tuple(ordini_pagati(conn, 5)) == tuple(prima)
+
+
+@pytest.mark.parametrize("evento_id", [12, 6, 8])  # in vendita, bozza, annullato
+def test_apri_vendite_stato_non_valido(conn, adesso, evento_id):
+    with pytest.raises(StatoNonValido, match="solo le vendite di eventi a vendite chiuse"):
+        apri_vendite_evento(conn, evento_id, adesso)
+    assert righe_audit(conn) == []
+
+
+def test_apri_vendite_evento_gia_svolto(conn, adesso):
+    conn.execute("UPDATE eventi SET data_evento = '2026-10-01 20:00:00' WHERE id = 5")
+    with pytest.raises(StatoNonValido, match="gia' svolto"):
+        apri_vendite_evento(conn, 5, adesso)
+    assert dettaglio_evento(conn, 5)["stato"] == "vendite_chiuse"
+
+
+def test_apri_vendite_evento_inesistente(conn, adesso):
+    with pytest.raises(NonTrovato):
+        apri_vendite_evento(conn, 999, adesso)
+
+
+def test_chiudere_e_riaprire_ripristina_lo_stato(conn, adesso):
+    chiudi_vendite_evento(conn, 12, adesso)
+    apri_vendite_evento(conn, 12, adesso)
+    assert dettaglio_evento(conn, 12)["stato"] == "in_vendita"
+    assert [r["tool"] for r in righe_audit(conn)] == ["chiudi_vendite_evento", "apri_vendite_evento"]
+
+
+def test_apri_vendite_e_atomico(conn, adesso, monkeypatch):
+    """Se la riga di audit non si scrive, lo stato non cambia."""
+    def fallisce(*args, **kwargs):
+        raise RuntimeError("guasto simulato")
+
+    monkeypatch.setattr(modulo_eventi, "scrivi_audit", fallisce)
+    with pytest.raises(RuntimeError):
+        apri_vendite_evento(conn, 5, adesso)
+    assert dettaglio_evento(conn, 5)["stato"] == "vendite_chiuse"
 
 
 # ---------- annulla evento ----------

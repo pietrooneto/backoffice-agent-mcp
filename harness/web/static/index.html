@@ -52,6 +52,8 @@
 
   .vuoto { color: var(--tenue); padding: 24px 0 8px; max-width: 34rem; }
   .vuoto p { margin: 0 0 8px; }
+  .vuoto p:first-child { color: var(--testo); font-weight: 600; }
+  .guida { margin: 0 0 14px; padding-left: 1.1rem; display: grid; gap: 6px; }
   .esempi { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 4px; }
   .esempi button { border: none; background: none; padding: 0; color: var(--testo); text-decoration: underline;
                    text-decoration-color: var(--linea-forte); text-underline-offset: 3px; text-align: left; }
@@ -168,10 +170,19 @@
 
 <script>
 "use strict";
+const GUIDA = [
+  "Scrivi la richiesta in italiano, come la diresti a un collega. L'assistente sa cercare eventi, mostrare capienza e biglietti venduti, consultare lo storico di un cliente e vedere un ordine. Può anche chiudere le vendite di un evento, riaprirle, annullare un evento (rimborsa tutti gli ordini) e rimborsare un ordine.",
+  "Per le modifiche puoi indicare l'evento o l'ordine con il numero («evento 12», «ordine 596», «l'id dell'evento è 12») oppure con il titolo; se più eventi hanno lo stesso titolo aggiungi la città o la data. Il numero conta come id solo se si capisce di quale cosa parli: «12 biglietti» o un numero con evento e ordine nella stessa frase non vanno bene.",
+  "Prima di ogni modifica compare una scheda «Serve la tua conferma» con ciò che succederebbe. Leggila, poi premi Conferma o Rifiuta: senza il tuo consenso non cambia nulla.",
+  "Non può riaprire un evento annullato o già svolto, modificare dati dei clienti o rispondere a domande che non riguardano eventi, ordini e clienti.",
+  "Il modello gira sul tuo computer ed è piccolo: può sbagliare o fare domande poco chiare, e ogni passo richiede decine di secondi. Controlla sempre la scheda e, a destra, il pannello dei dati."
+];
 const ESEMPI = [
   "Quanti posti restano per la Rassegna Rock Club?",
   "Quanti eventi ha comprato Daniele Esposito?",
-  "Chiudi le vendite della Serata Cabaret",
+  "Chiudi le vendite dell'evento 12",
+  "Riapri le vendite dell'evento 5",
+  "Rimborsa l'ordine 596",
   "Chiudi l'evento Notte Elettrica Festival",
   "Che tempo fa domani a Milano?"
 ];
@@ -302,8 +313,11 @@ function gestisci(e) {
 
 function vuotoIniziale() {
   const v = el("div", "vuoto"); v.id = "vuoto";
-  v.append(el("p", null, "Scrivi una richiesta in italiano. Prima di ogni modifica ai dati ti verrà chiesta una conferma."));
-  v.append(el("p", null, "Qualche esempio:"));
+  v.append(el("p", null, "Come si usa"));
+  const regole = el("ul", "guida");
+  for (const r of GUIDA) regole.append(el("li", null, r));
+  v.append(regole);
+  v.append(el("p", null, "Qualche esempio (clicca per inserirlo):"));
   const lista = el("ul", "esempi");
   for (const t of ESEMPI) {
     const voce = el("li"), b = el("button", null, t); b.type = "button";

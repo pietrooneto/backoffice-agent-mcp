@@ -38,6 +38,13 @@ class Configurazione:
     controlli: bool = True  # anteprima delle scritture e controllo degli id (CONTROLLI_HARNESS=0 per disattivarli)
     log_dir: Path = ROOT / "logs"
 
+    def per_log(self) -> dict:
+        """Impostazioni utili a interpretare una prova. Niente chiavi API, ne' indirizzi che potrebbero contenerle."""
+        return {
+            "variante_prompt": self.variante_prompt, "num_ctx": self.num_ctx,
+            "timeout_modello_s": self.timeout_modello,
+        }
+
     @classmethod
     def da_ambiente(cls) -> "Configurazione":
         carica_env()
